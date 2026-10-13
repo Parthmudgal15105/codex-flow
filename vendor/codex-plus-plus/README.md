@@ -1,0 +1,342 @@
+# Codex++
+
+Multiple ChatGPT subscriptions in one Codex desktop app.
+
+Windows 26.901 also includes **Settings → Providers**, directly below Analytics:
+multiple API connections, enabled models and efforts, and account usage in one
+compact settings pane. The provider catalog can be refreshed from codex-router;
+OpenCode Go and paid Zen remain separate connections. See the
+[provider setup and current adapter limits](docs/providers.md).
+
+ChatGPT Web has separate **Browser only** and **Full** rows. Full mode keeps the
+native Codex turn as the authority for tools and permissions through the
+versioned `Codex++ Native v2` connector. See the
+[current Web v2 contract, setup boundaries and test layers](docs/chatgpt-web-v2.md).
+Both modes default to verified Temporary Chat. Normal saved history requires
+explicit user opt-in; a missing connector never silently changes the mode. Current live acceptance and
+known limitations are tracked in the [execution log](docs/chatgpt-web-execution-20260911.md);
+an offline test pass is not a live native-tool E2E pass.
+
+Codex++ installs a second app next to the original — on macOS next to
+`ChatGPT.app`, on Windows as a per-user copy of the store-installed Codex app —
+without touching the original. Every subscription you connect shows up in the
+profile menu with its own avatar, plan and remaining usage. Click a row to
+switch Codex++ to that account. Its history, projects and skills remain
+available in Codex++'s private home.
+
+![Account menu](docs/account-menu.png)
+
+The original app is left exactly as it is. You can go back to it whenever you
+want.
+
+## Install
+
+### Install via prompt
+
+To install Codex++ using an AI coding agent, paste this prompt into the assistant:
+
+> Clone the repository (or work from this local checkout) and run the installer for this operating system (`./install/mac/install.sh install` on macOS or `powershell -ExecutionPolicy Bypass -File install\windows\install.ps1` on Windows) without modifying the original `/Applications/ChatGPT.app` or store package. Verify that the installation succeeded by checking the newly created application bundle or shortcut, and ask for clarification if any prerequisites (such as Xcode Command Line Tools, Node.js, or the base ChatGPT application) are missing.
+
+macOS:
+
+```bash
+./install/mac/install.sh install
+```
+
+Requirements: macOS, Xcode Command Line Tools (`clang`), an installed
+`ChatGPT.app`.
+
+Windows (the Codex desktop app from the Microsoft Store):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install\windows\install.ps1
+```
+
+Requirements: Windows 10/11, Node.js 22.22 or newer, the store-installed `OpenAI.Codex`
+package. The installer finds the package, copies its payload to
+`%LOCALAPPDATA%\Programs\CodexPP`, patches it and creates Start Menu /
+Desktop shortcuts. No compiler is needed — the shortcut passes
+`--user-data-dir` directly, which on macOS is the launcher's job.
+
+Uninstall:
+
+```bash
+./install/mac/install.sh uninstall          # macOS
+powershell -ExecutionPolicy Bypass -File install\windows\uninstall.ps1   # Windows
+```
+
+## Using multiple accounts
+
+Open the profile menu in the sidebar footer:
+
+- **Usage remaining** — the combined headroom across every connected
+  subscription, shown when you have more than one.
+- **Account rows** — avatar, label, plan and that account's own remaining
+  usage. A check marks your **default** account: new chats start on it and
+  it never changes behind your back. On the home screen, clicking a row makes
+  it the default. While a chat is open, clicking a row pins **that chat only**
+  to the account (a **This chat** badge appears); the default stays put.
+- **Per-chat pins** — every message in a pinned chat is sent with the pinned
+  account: the engine switches to it just for that turn and returns to the
+  default when the turn finishes or you open another chat. Chats you never
+  pinned use the default; an exhausted or ineligible pinned account falls
+  back to the default, and the failover card re-pins the chat to the account
+  it switches to. Two chats pinned to different accounts cannot run turns at
+  the same time on different accounts; the second turn uses whichever account
+  the running turn holds.
+- **Account picker in the thread header** — left of **Share**, a small
+  avatar + name button shows which account the open chat uses (the pinned one,
+  or the default). Pick another account to pin the chat to it, or
+  **Automatic** to remove the pin. It appears once the chat exists; a brand-new
+  chat uses the default account (or auto-routing's choice) for its first
+  message.
+- **External-provider chats** — a chat that runs on a provider from
+  Settings → Providers shows the provider instead of an account, plus
+  **Continue with ChatGPT (copy)**: it forks the conversation into a
+  ChatGPT-backed chat and opens it. The original stays on the provider; a
+  stock Codex app cannot open provider chats at all (its engine has no such
+  provider), but it opens the copy.
+- **Log out icon** — signs out of that single account. If it was the active
+  one, the app keeps running on the next remaining account instead of dropping
+  you at the sign-in screen.
+- **Add another subscription** — opens the ChatGPT login flow and stores the
+  new account.
+
+You can also add an account from the terminal:
+
+```bash
+node tools/add-account.mjs "Work"
+```
+
+The account you pick is remembered and restored the next time the app starts.
+
+## Configuration
+
+macOS (environment variables for `install.sh`):
+
+| Variable | Default |
+|---|---|
+| `SRC_APP` | `/Applications/ChatGPT.app` |
+| `DEST_APP` | `/Applications/Codex++.app` |
+| `BUNDLE_ID` | `com.local.codexpp` |
+| `USER_DATA_DIR` | `~/Library/Application Support/CodexPP` |
+| `SKIP_CLAUDE_PEERS` | unset (set to any value to skip the claude-peers MCP server) |
+
+Windows (parameters for `install.ps1`):
+
+| Parameter | Default |
+|---|---|
+| `-SrcApp` | auto-detected from the `OpenAI.Codex` store package |
+| `-DestDir` | `%LOCALAPPDATA%\Programs\CodexPP` |
+| `-DataDir` | `%LOCALAPPDATA%\CodexPP` |
+| `-SkipClaudePeers` | off (skips the claude-peers MCP server) |
+
+Codex++ uses `<user-data-dir>/codex-home` as its private `CODEX_HOME`. The
+installer imports the original home once (the inherited `CODEX_HOME`, or
+`~/.codex`). Model and provider selections, account changes, and subsequent
+conversation updates stay private to Codex++. The original CLI configuration
+is never rewritten. See [home isolation](docs/home-isolation.md) for migration
+details. Electron's user data directory is also separate.
+
+The Windows installer enables long-path support in the copied sandbox setup
+helper's manifest. Windows `LongPathsEnabled` must also be enabled when runtime
+caches contain paths longer than 260 characters; the installer does not change
+that system setting. See the measured failure and repair in the
+[26.928 validation log](docs/update-2026-10-01-validation.md).
+
+## Claude Code sessions as Codex tools
+
+The installer also registers `integrations/claude-peers`, an MCP server that
+puts the Claude Code sessions running on this machine into Codex's own tool
+list:
+
+| Tool | Does |
+|---|---|
+| `list_claude_sessions` | live sessions with name, pid, cwd, status |
+| `send_message_to_claude` | message a session; it lands there as a user prompt |
+| `read_claude_messages` | read what Claude sessions sent back |
+| `claude_peer_address` | this server's address, as Claude sees it |
+
+Traffic is bidirectional: the server registers itself the same way a Claude
+session does, so Claude's `ListAgents` lists Codex as `codex` and its
+`SendMessage` reaches it. No relay session is spawned — see
+[`integrations/claude-peers/README.md`](integrations/claude-peers/README.md)
+for the measured wire protocol and its failure modes.
+
+## How it works
+
+The app is Electron (`app.asar`); the engine is a separate `codex app-server`
+process and the two speak JSON-RPC. The same eight patches apply on both
+platforms — only the packaging around them differs.
+
+Installing on macOS does this:
+
+1. Copy the bundle with `ditto`
+2. Rewrite `CFBundleIdentifier`, `CFBundleName`, `CFBundleExecutable`
+3. Compile `install/mac/launcher.c` and make it the main executable, and
+   `install/mac/keychain.c` (`codexpp-keychain`) for provider API keys
+4. Patch `app.asar` and rewrite the `ElectronAsarIntegrity` hash in
+   `Info.plist` (26.901+ aborts at startup without it; integrity checking
+   stays enabled)
+5. Drop `embedded.provisionprofile` and the old signature
+6. Ad-hoc sign inside out, preserving the original signatures of native
+   Computer Use and its trusted engine/runtime helpers
+
+Installing on Windows does this:
+
+1. Copy the MSIX payload (`app\`, entry point `ChatGPT.exe`) to `DestDir`
+2. Patch `resources\app.asar` and drop `resources\hub` in place
+3. Update the copy's embedded ASAR header hash when present (integrity checking stays enabled)
+4. Create shortcuts that pass `--user-data-dir=<DataDir>` to `ChatGPT.exe`
+
+No plist, launcher or re-signing is needed on Windows: the store package is
+read-only, but the copy is not, and a shortcut can carry command-line
+arguments. The copy also never receives store updates — re-run the installer
+after the original app updates to refresh it.
+
+### Account switching
+
+The engine supports an auth mode where the host app supplies ChatGPT tokens
+instead of managing them itself (`chatgptAuthTokens`). The stock desktop app
+never uses it — it only ever sends `{type:"chatgpt"}` and lets the engine read
+`~/.codex/auth.json`. That single file is why the stock app has exactly one
+account, and why logging out signs you out of everything.
+
+Codex++ takes over that channel:
+
+- A side process (`hub/`) keeps a store of accounts and their refresh tokens
+  under `USER_DATA_DIR`, and mints access tokens on demand.
+- The account in `~/.codex/auth.json` is read live as the *native* account, so
+  the account you already signed in with shows up without being copied
+  anywhere.
+- Picking an account sends `account/login/start {type:"chatgptAuthTokens"}` to
+  the engine. The switch is immediate, needs no logout, and never writes to
+  `~/.codex/auth.json`.
+- When the engine hits a 401 it asks the host to refresh; the hub answers with
+  a fresh token for the account currently in use.
+
+Per-account usage comes from the engine too, not from a web endpoint: the hub
+spawns a short-lived `codex app-server` in a temporary `CODEX_HOME`, logs into
+each account in turn with its own token, and reads
+`account/rateLimits/read`.
+
+### Why a launcher is needed on macOS
+
+The `userData` directory can only be changed through Chromium's
+`--user-data-dir` switch. The `CODEX_ELECTRON_USER_DATA_PATH` variable in the
+code is read but has no effect:
+
+```
+ERROR:owl/browser/api/electron_api_app.cc:792
+Ignoring late userData path change after native startup.
+```
+
+`app.setPath('userData')` is called after native startup, so OpenAI's Electron
+fork refuses it. Since arguments cannot be put in `Info.plist`, and the
+hardened runtime will not accept a shell script as the main executable
+(`Launchd job spawn failed`, POSIX 162), a small Mach-O launcher is required.
+
+On Windows none of this applies: the shortcut points at the copy's
+`ChatGPT.exe` and carries `--user-data-dir` itself.
+
+### Signing (macOS)
+
+Ad-hoc signature. Restricted entitlements (`keychain-access-groups`,
+`application-groups`, `aps-environment`, `application-identifier`) are dropped —
+they are bound to OpenAI's team id and cannot be transferred. What is lost:
+push notifications and two app-group services.
+
+`Codex++-bin` must be signed with entitlements, otherwise library validation
+refuses to load `Codex Framework` (*different Team IDs*).
+`codexpp-keychain` is signed as well; the login-keychain item it creates is
+bound to that signature.
+
+`codex` and `codex-code-mode-host`, plus `cua_node/bin/node` and `node_repl`,
+retain their original OpenAI signatures. Those signatures preserve the JIT
+entitlements and developer team identity needed by native Computer Use.
+Only `codex_chronicle` and `rg` are re-signed with the local entitlements.
+
+The entire `cua_node/lib/node_modules/@oai/sky/Codex Computer Use.app`
+subtree is excluded from recursive signing, including its nested client and
+frameworks. Re-signing this service ad-hoc removes its team identity and causes
+`SkyIPCRequirement.Error.teamNotFound`, surfaced as `native pipe startup failed`.
+The installer verifies these original signatures before and after signing;
+`resign` also refuses an already damaged runtime. Quit Codex++ and reinstall
+from the original source app to repair an older installation. Merely increasing
+the connection timeout or re-sealing an ad-hoc service does not restore its
+developer identity. `resign` remains available to re-seal an intact runtime.
+
+The main process also vets every peer that connects to its loopback pipes
+(browser-use, dynamic app tools, node REPL host services) through a native
+addon that only accepts peers when the host itself is an OpenAI-signed Codex
+bundle. Under the ad-hoc `com.local.codexpp` bundle it rejects everything with
+`missing-code-signing-identity`, so patch 096 returns the permissive
+authorizer the app uses on other platforms. The pipes stay `0600`, which
+limits them to this user's processes.
+
+Nothing is re-signed on Windows. Releases with embedded ASAR integrity require
+updating the hash resource in the copied `ChatGPT.exe`; that modified copy no
+longer has a valid OpenAI Authenticode signature. The original Store executable
+is unchanged. Windows builds need no entitlements.
+
+### Auto-update
+
+Patch 020 sets `CODEX_SPARKLE_ENABLED=false` in the main process on every
+platform. That one flag gates all three updaters — Sparkle on macOS, the
+Microsoft Store updater and the MSIX fallback on Windows. On Windows the flag
+matters even more than on macOS: the copy runs without MSIX package identity,
+so the store updater would throw `The process has no package identity` on every launch
+and the copy could never update itself anyway. On both platforms: re-run the
+installer after the original app updates.
+
+## Patches
+
+The patched surface is kept small — everything else lives in `hub/` as ordinary
+code.
+
+| # | File | Job |
+|---|---|---|
+| 010 | `webview/assets/app-initial-*.js` | answer the engine's token refresh request |
+| 020 | `.vite/build/early-bootstrap.js` | start the hub in the main process and set `CODEX_SPARKLE_ENABLED=false` |
+| 030 | `.vite/build/preload.js` | expose the `__codexpp` bridge to the renderer |
+| 040 | `webview/assets/app-*.js` + semantic selector | account list, usage, switching and logout in the profile menu |
+| 050 | `.vite/build/bootstrap-*.js` | skip the `setPath('userData')` call that triggers a macOS permission prompt |
+| 060 | `webview/assets/app-initial-*.js` | register the app-server client and restore the preferred account |
+| 070 | `webview/assets/app-initial-*.js` | treat host-supplied auth as a normal ChatGPT session in the UI |
+| 080 | `.vite/build/src-*.js` | allow external-session tokens, or verify native support in newer builds |
+| 090 | `webview/assets/app-initial-*.js` | automatic account routing and thread ownership |
+| 091 | `webview/assets/app-initial-*.js` | mark accounts ineligible on quota errors |
+| 092 | `webview/assets/app-*.js` + semantic selector | offer an eligible account in the quota banner |
+| 100 / 110 | `.vite/build/preload.js` | reset-credit and profile bridges |
+| 101 | `webview/assets/app-*.js` + semantic selector | per-account reset-credit selector |
+| 111 | `webview/assets/app-initial-*.js` | profile account avatar stack |
+| 120 / 121 | preload / app-initial | provider IPC, enabled catalog and per-thread routes |
+| 122 | `webview/assets/settings-page-*.js` | inline Providers section below Analytics |
+| 123 | `webview/assets/app-primary-*.js` | separate external efforts from native speed/usage hints |
+
+Windows build 26.901.5280.0 includes GPT-6 Astra through the upstream model
+catalog. See the [compatibility evidence and patch decision matrix](docs/astra-windows-26.901.md).
+
+Patches are anchored on meaning — protocol constants, React keys, prop
+signatures — never on minified names, and each anchor must match exactly once.
+See [AGENTS.md](AGENTS.md) for the method.
+
+To regenerate the protocol schema (macOS):
+
+```bash
+/Applications/ChatGPT.app/Contents/Resources/codex app-server generate-json-schema --out ./schema --experimental
+```
+
+On Windows the engine is `%LOCALAPPDATA%\Programs\CodexPP\resources\codex.exe`.
+
+## Caveats
+
+- Codex++ and the original CLI have separate homes. Imported history is a
+  snapshot; later conversations and settings do not synchronize between them.
+- On macOS an ad-hoc signature invalidates notarization. This is for local use
+  only, not for distribution.
+- The `chatgptAuthTokens` auth mode is marked unstable in the protocol schema.
+  If a future release changes it, the symptom is `account/login/start`
+  returning an error.
+- Logging out of the native account moves `~/.codex/auth.json` to a timestamped
+  backup under `USER_DATA_DIR` rather than deleting it.

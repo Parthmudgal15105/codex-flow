@@ -1,0 +1,11 @@
+{
+  "installedApp": "/Users/parthmudgal/Applications/Codex++.app",
+  "backup": "/Users/parthmudgal/Library/Application Support/CodexPP/backups/Codex++-before-scheduling-fix-20261012T131219Z.app",
+  "activation": "next application restart; running process not terminated",
+  "model": "finite-horizon-v3",
+  "sha256": {
+    "flow-optimizer.cjs": "a98e5739af035fa034ae0e594847686665ae43b2281297efc812f09d39786e01",
+    "exact-model.cjs": "0f41fa67e1e173e3ef392f7a5d0f744113f361a439aa397a36552bdb65cc30b5",
+    "exact-worker.cjs": "26907108bd364b95612236ead1992bb84172c6aa8fac336a114dfffd897fa9c8"
+  }
+}

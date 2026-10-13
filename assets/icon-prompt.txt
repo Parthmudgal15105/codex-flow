@@ -1,0 +1,5 @@
+Generated with the built-in image_gen tool.
+
+Use case: logo-brand. Create one polished macOS application icon for Codex Flow, a coding tool that smoothly hands work between two accounts. Square 1024x1024 asset. A single bold sculptural continuous ribbon forming a flowing angular S / paired interlocking paths, subtle suggestion of code angle brackets in negative space. Mint teal and cool cyan ribbon with restrained satin depth, on a deep graphite rounded-square macOS tile. Clean highly legible silhouette at 32 pixels, centered generously with balanced margins, premium native Mac software aesthetic. Rounded tile occupies 88 percent of canvas with transparent exterior around corners. Front view, no perspective. No text, letters, AppleScript scroll, OpenAI knot, extra symbols, tiny details, mockup, or surrounding scene. Actual finished icon artwork.
+
+transparent_background: true

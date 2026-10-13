@@ -1,0 +1,24 @@
+✔ desktop learning attributes one turn, excludes refresh delay, persists and rejects overlap (1.897292ms)
+✔ malformed durations and reset crossings cannot poison learned rates (0.334042ms)
+✔ overlapping work invalidates both measurements instead of learning the wrong cost (0.435833ms)
+✔ switch overhead is measured only after successful acknowledgement and bounded (1.061958ms)
+✔ adapter honors every exclusion representation and identity exclusions (1.251417ms)
+✔ adapter rejects stale, future, failed, missing and exhausted quota snapshots (0.696084ms)
+✔ adapter preserves unknown reset and uses workspace identity for learning (0.070375ms)
+✔ all quota buckets retain separate resources and server-blocked status (0.096084ms)
+✔ exact solver matches independent exhaustive oracle across 80 seeded schedules (1485.5905ms)
+✔ exact reset boundaries are preserved without five-minute rounding (78.942333ms)
+✔ past reset does not fabricate allowance and all exhausted accounts fail closed (63.883583ms)
+✔ invalid and duplicate input, exclusions, empty data and invalid options fail closed (43.095459ms)
+✔ blocked account can contribute after its reported reset, never be selected now (120.292083ms)
+✔ async routing returns the same certified decision without blocking the event loop (223.125667ms)
+✔ session replanning preserves elapsed work and resets only after the work block (1.731208ms)
+✔ switching time spans a reset-created short slot (7.033667ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2062.799834

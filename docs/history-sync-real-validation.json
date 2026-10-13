@@ -1,0 +1,174 @@
+{
+  "officialEngine": {
+    "officialEngineReadPassed": true,
+    "chats": [
+      {
+        "id": "39de5eb3-0754-47e3-89c4-1cd107a34d0a",
+        "readable": true,
+        "turns": 10,
+        "userMessages": 11,
+        "assistantMessages": 24
+      },
+      {
+        "id": "e475f195-bed1-49a0-b5ad-de0014c1d113",
+        "readable": true,
+        "turns": 25,
+        "userMessages": 23,
+        "assistantMessages": 53
+      },
+      {
+        "id": "212e5232-7065-4c0a-8928-9394b912b466",
+        "readable": true,
+        "turns": 20,
+        "userMessages": 34,
+        "assistantMessages": 82
+      },
+      {
+        "id": "01a12ca6-f36b-7c73-ae39-49f4d7fad15b",
+        "readable": true,
+        "turns": 2,
+        "userMessages": 3,
+        "assistantMessages": 10
+      }
+    ]
+  },
+  "result": "passed",
+  "homesWereDisposable": true,
+  "counts": {
+    "official": 97,
+    "codexpp": 97
+  },
+  "runs": [
+    {
+      "checkedAt": "2026-10-11T21:38:41.520357+00:00",
+      "directions": {
+        "codexpp\u2192official": {
+          "status": "synced",
+          "backup": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/flow-sync-real-w706_7q1/sync/backups/20261011T213844.049657Z-official",
+          "newChats": 0,
+          "updatedChats": 6,
+          "conflictCopies": 0,
+          "projects": 0,
+          "pendingChats": 0,
+          "metadataConflicts": 0
+        },
+        "official\u2192codexpp": {
+          "status": "synced",
+          "backup": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/flow-sync-real-w706_7q1/sync/backups/20261011T213846.665134Z-codexpp",
+          "newChats": 0,
+          "updatedChats": 6,
+          "conflictCopies": 3,
+          "projects": 0,
+          "pendingChats": 0,
+          "metadataConflicts": 0
+        }
+      },
+      "lastSuccessfulSync": {
+        "at": "2026-10-11T21:38:41.520357+00:00",
+        "directions": {
+          "codexpp\u2192official": {
+            "status": "synced",
+            "backup": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/flow-sync-real-w706_7q1/sync/backups/20261011T213844.049657Z-official",
+            "newChats": 0,
+            "updatedChats": 6,
+            "conflictCopies": 0,
+            "projects": 0,
+            "pendingChats": 0,
+            "metadataConflicts": 0
+          },
+          "official\u2192codexpp": {
+            "status": "synced",
+            "backup": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/flow-sync-real-w706_7q1/sync/backups/20261011T213846.665134Z-codexpp",
+            "newChats": 0,
+            "updatedChats": 6,
+            "conflictCopies": 3,
+            "projects": 0,
+            "pendingChats": 0,
+            "metadataConflicts": 0
+          }
+        }
+      },
+      "durationSeconds": 5.222
+    },
+    {
+      "checkedAt": "2026-10-11T21:38:46.741984+00:00",
+      "directions": {
+        "codexpp\u2192official": {
+          "status": "synced",
+          "backup": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/flow-sync-real-w706_7q1/sync/backups/20261011T213847.657518Z-official",
+          "newChats": 0,
+          "updatedChats": 2,
+          "conflictCopies": 0,
+          "projects": 0,
+          "pendingChats": 0,
+          "metadataConflicts": 0
+        },
+        "official\u2192codexpp": {
+          "status": "up_to_date",
+          "newChats": 0,
+          "updatedChats": 0,
+          "conflictCopies": 0,
+          "projects": 0,
+          "pendingChats": 0,
+          "metadataConflicts": 0
+        }
+      },
+      "lastSuccessfulSync": {
+        "at": "2026-10-11T21:38:46.741984+00:00",
+        "directions": {
+          "codexpp\u2192official": {
+            "status": "synced",
+            "backup": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/flow-sync-real-w706_7q1/sync/backups/20261011T213847.657518Z-official",
+            "newChats": 0,
+            "updatedChats": 2,
+            "conflictCopies": 0,
+            "projects": 0,
+            "pendingChats": 0,
+            "metadataConflicts": 0
+          }
+        }
+      },
+      "durationSeconds": 1.346
+    },
+    {
+      "checkedAt": "2026-10-11T21:38:48.088160+00:00",
+      "directions": {
+        "codexpp\u2192official": {
+          "status": "up_to_date",
+          "newChats": 0,
+          "updatedChats": 0,
+          "conflictCopies": 0,
+          "projects": 0,
+          "pendingChats": 0,
+          "metadataConflicts": 0
+        },
+        "official\u2192codexpp": {
+          "status": "up_to_date",
+          "newChats": 0,
+          "updatedChats": 0,
+          "conflictCopies": 0,
+          "projects": 0,
+          "pendingChats": 0,
+          "metadataConflicts": 0
+        }
+      },
+      "lastSuccessfulSync": {
+        "at": "2026-10-11T21:38:46.741984+00:00",
+        "directions": {
+          "codexpp\u2192official": {
+            "status": "synced",
+            "backup": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/flow-sync-real-w706_7q1/sync/backups/20261011T213847.657518Z-official",
+            "newChats": 0,
+            "updatedChats": 2,
+            "conflictCopies": 0,
+            "projects": 0,
+            "pendingChats": 0,
+            "metadataConflicts": 0
+          }
+        }
+      },
+      "durationSeconds": 0.022
+    }
+  ],
+  "durationSeconds": 7.977
+}

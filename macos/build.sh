@@ -1,11 +1,7 @@
 #!/bin/zsh
 set -eu
 cd "$(dirname "$0")/.."
-APP="${CODEX_FLOW_APP_DESTINATION:-$HOME/Applications/Codex Flow.app}"
-FLOW_NODE_EXECUTABLE="$(command -v node)"
-FLOW_CODEX_EXECUTABLE="$(command -v codex)"
-FLOW_SOURCE_ROOT="$PWD"
-node -e 'if (Number(process.versions.node.split(".")[0]) < 22) process.exit(1)'
+APP="$HOME/Applications/Codex Flow.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 swiftc -parse-as-library macos/FlowApp.swift macos/FlowModel.swift -o "$APP/Contents/MacOS/CodexFlow" -framework SwiftUI -framework AppKit -framework WebKit -framework PDFKit
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -24,9 +20,6 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-/usr/libexec/PlistBuddy -c "Add :FlowNodeExecutable string $FLOW_NODE_EXECUTABLE" "$APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Add :FlowCodexExecutable string $FLOW_CODEX_EXECUTABLE" "$APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Add :FlowCLIPath string $FLOW_SOURCE_ROOT/src/cli.js" "$APP/Contents/Info.plist"
 cp assets/CodexFlow.icns "$APP/Contents/Resources/CodexFlow.icns"
 rm -f "$APP/Contents/MacOS/applet"
 codesign --force --sign - "$APP"

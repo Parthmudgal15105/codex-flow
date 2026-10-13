@@ -1,0 +1,11 @@
+{
+  "installedApp": "/Users/parthmudgal/Applications/Codex++.app",
+  "backup": "/Users/parthmudgal/Library/Application Support/CodexPP/backups/Codex++-before-exact-20261012T101135Z.app",
+  "activation": "next application restart; running process not terminated",
+  "optimizerSha256": "948137c798aa3363114ebac306dd139ff5c524191f49392d067715337dff80f4",
+  "feature": "automatic unused account window activation before scheduling",
+  "automatedTests": 42,
+  "liveActivationVerified": true,
+  "resetStayedFixedAcrossFollowUpChecks": true,
+  "schedulerMode": "continuous-eight-hour-horizon"
+}

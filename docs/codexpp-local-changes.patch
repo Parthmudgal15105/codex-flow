@@ -1,0 +1,294 @@
+diff --git a/hub/accounts.cjs b/hub/accounts.cjs
+index bb5590b..175d72f 100644
+--- a/hub/accounts.cjs
++++ b/hub/accounts.cjs
+@@ -3,6 +3,7 @@ const path = require("node:path");
+ const store = require("./store.cjs");
+ const tokens = require("./tokens.cjs");
+ const native = require("./native.cjs");
++const switchLearning=require("./switch-learning.cjs")(path.join(store.userDataDir(),"flow-switch-minutes.json"));
+ 
+ function backupPath() {
+   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+@@ -12,8 +13,10 @@ function backupPath() {
+ // options.transient: move the engine only; the default (preferred) account,
+ // which new chats and the profile menu use, stays where the user put it.
+ async function activate(accountId, options = {}) {
++  if(options.prepare)switchLearning.begin(accountId,store.activeAccountId());
+   if (options.commit) {
+     if (!store.findAccount(accountId)) return { ok: false, error: "account not found" };
++    switchLearning.end(accountId);
+     store.setActive(accountId);
+     if (!options.transient) store.setPreferred(accountId);
+     return { ok: true, view: store.publicView() };
+diff --git a/hub/login.cjs b/hub/login.cjs
+index c80e182..fc98120 100644
+--- a/hub/login.cjs
++++ b/hub/login.cjs
+@@ -10,14 +10,17 @@ const { decodeClaims, authClaims } = require("./claims.cjs");
+ function codexBinary() {
+   if (process.env.CODEX_BIN) return process.env.CODEX_BIN;
+   const name = process.platform === "win32" ? "codex.exe" : "codex";
+-  if (process.resourcesPath) return path.join(process.resourcesPath, name);
++  if (process.resourcesPath) {
++    const bundled = path.join(process.resourcesPath, "codex-cli", "bin", name);
++    return fs.existsSync(bundled) ? bundled : path.join(process.resourcesPath, name);
++  }
+   if (process.platform === "win32") {
+     // outside the app (tools/add-account.mjs): prefer the installed Codex++ copy
+     const installed = path.join(process.env.LOCALAPPDATA ?? "", "Programs", "CodexPP", "resources", name);
+     if (fs.existsSync(installed)) return installed;
+     return name; // resolved from PATH
+   }
+-  return "/Applications/ChatGPT.app/Contents/Resources/codex";
++  return "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex";
+ }
+ 
+ function runLogin(codexHome) {
+diff --git a/hub/main.cjs b/hub/main.cjs
+index 03f820f..e57f206 100644
+--- a/hub/main.cjs
++++ b/hub/main.cjs
+@@ -174,9 +174,11 @@ ipcMain.handle("codexpp:routing-forget-owner", (_event, threadId) => {
+ 
+ ipcMain.handle("codexpp:routing-suggest", async (_event, excluded) => {
+   try {
++    await require("./flow-routing.cjs").learning.wait();
++    await usage.refreshAll({force:true});
+     const list = store.accounts();
+     const learned = routing.read().learnedIneligible;
+-    return routing.chooseAccount(list, excluded, learned);
++    return require("./flow-routing.cjs").choose(list, excluded, learned);
+   } catch (err) {
+     console.error("==> codexpp routing-suggest error:", err.message);
+     return null;
+@@ -289,3 +291,6 @@ ipcMain.handle("codexpp:web-close", guard("failed to close the ChatGPT window",
+ 
+ ipcMain.handle("codexpp:web-effort", guard("failed to read the ChatGPT effort control", () =>
+   webSession.effortTrigger()));
++
++ipcMain.handle("codexpp:flow-begin", (_e, threadId, accountId) => {const flow=require("./flow-routing.cjs");flow.startSession();return flow.learning.begin(threadId, accountId)});
++ipcMain.handle("codexpp:flow-end", (_e, threadId) => require("./flow-routing.cjs").learning.end(threadId));
+diff --git a/hub/package-lock.json b/hub/package-lock.json
+index 89369d7..d22d7d8 100644
+--- a/hub/package-lock.json
++++ b/hub/package-lock.json
+@@ -8,9 +8,19 @@
+       "name": "codexpp-hub",
+       "version": "0.0.0",
+       "dependencies": {
++        "highs": "1.15.3",
+         "tiktoken": "1.0.22"
+       }
+     },
++    "node_modules/highs": {
++      "version": "1.15.3",
++      "resolved": "https://registry.npmjs.org/highs/-/highs-1.15.3.tgz",
++      "integrity": "sha512-5rzjBlAkqRxr7FOv+iZjxF8nNfKsEt8uOaP3S6gls6yRf4+Jv4BqBIE3iPFsgfOHutQBMNxRE9jWhxRAM7Oycw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/tiktoken": {
+       "version": "1.0.22",
+       "resolved": "https://registry.npmjs.org/tiktoken/-/tiktoken-1.0.22.tgz",
+diff --git a/hub/package.json b/hub/package.json
+index c529c61..0b86899 100644
+--- a/hub/package.json
++++ b/hub/package.json
+@@ -3,6 +3,7 @@
+   "private": true,
+   "version": "0.0.0",
+   "dependencies": {
++    "highs": "1.15.3",
+     "tiktoken": "1.0.22"
+   }
+ }
+diff --git a/hub/probe.cjs b/hub/probe.cjs
+index c54d9b6..48ac1ea 100644
+--- a/hub/probe.cjs
++++ b/hub/probe.cjs
+@@ -4,14 +4,16 @@ const path = require("node:path");
+ const { spawn } = require("node:child_process");
+ 
+ const { codexBinary } = require("./login.cjs");
+-const { normalizeRateLimits } = require("./rate-limits.cjs");
++const { normalizeAllRateLimits } = require("./rate-limits.cjs");
+ 
+ const REQUEST_TIMEOUT_MS = 30_000;
+ 
+ function open() {
+   const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexpp-probe-"));
++  const env={...process.env,CODEX_HOME:home,RUST_LOG:'error'};
++  for(const key of ['OPENAI_API_KEY','CODEX_API_KEY','CODEX_ACCESS_TOKEN'])delete env[key];
+   const child = spawn(codexBinary(), ["app-server"], {
+-    env: { ...process.env, CODEX_HOME: home, RUST_LOG: "error" },
++    env,
+     stdio: ["pipe", "pipe", "ignore"],
+     windowsHide: true
+   });
+@@ -111,7 +113,7 @@ async function readUsage(credentials) {
+         results.set(entry.id, {
+           email: account?.account?.email ?? null,
+           planType: account?.account?.planType ?? entry.planType ?? null,
+-          ...normalizeRateLimits(limits?.rateLimits),
++          ...normalizeAllRateLimits(limits),
+           usageAt: Date.now()
+         });
+       } catch (err) {
+diff --git a/hub/rate-limits.cjs b/hub/rate-limits.cjs
+index 2773685..a6c72ee 100644
+--- a/hub/rate-limits.cjs
++++ b/hub/rate-limits.cjs
+@@ -21,6 +21,7 @@ function normalizeWindow(raw, source, { resetIsSeconds = false } = {}) {
+ 
+   return {
+     source: sourceName(source),
++    ...(raw.bucket ? {bucket:raw.bucket} : {}),
+     usedPercent,
+     resetAt,
+     windowMins
+@@ -111,3 +112,16 @@ module.exports = {
+   usageWindowsForAccount,
+   emptyUsage
+ };
++
++function normalizeAllRateLimits(response) {
++ const buckets=response.rateLimitsByLimitId;
++ const entries=buckets&&Object.keys(buckets).length?Object.entries(buckets):[['codex',response.rateLimits]];
++ const windows=[];let reached=false;
++ for(const [id,limit] of entries){
++  if(!limit)continue;
++  reached ||= Boolean(limit.rateLimitReachedType);
++  for(const kind of ['primary','secondary'])if(limit[kind])windows.push(normalizeWindow({...limit[kind],bucket:id+':'+kind},kind,{resetIsSeconds:true}));
++ }
++ return {...buildUsagePayload(windows),rateLimitReached:reached};
++}
++module.exports.normalizeAllRateLimits=normalizeAllRateLimits;
+diff --git a/install/mac/install.sh b/install/mac/install.sh
+index f3551db..d503f85 100755
+--- a/install/mac/install.sh
++++ b/install/mac/install.sh
+@@ -91,6 +91,8 @@ apply_patches() {
+   node "$REPO_DIR/patch/mac-integrity.mjs" "$DEST_APP/Contents/Info.plist" \
+     "$SRC_APP/Contents/Resources/app.asar" "$DEST_APP/Contents/Resources/app.asar" \
+     || die "macOS ASAR integrity update failed"
++  python3 "$REPO_DIR/tools/update-mac-framework-integrity.py" "$SRC_APP" "$DEST_APP" \
++    || die "macOS framework integrity update failed"
+ }
+ 
+ install_hub() {
+@@ -170,7 +172,7 @@ verify_computer_use_runtime() {
+   local app="$1" rel metadata
+   # Older source builds may not ship the native Computer Use runtime.
+   [ -d "$app/$COMPUTER_USE_REL" ] || return 0
+-  for rel in Contents/Resources/codex Contents/Resources/codex-code-mode-host \
++  for rel in Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex Contents/Resources/codex-cli/bin/codex-code-mode-host \
+              Contents/Resources/cua_node/bin/node Contents/Resources/cua_node/bin/node_repl \
+              "$COMPUTER_USE_REL"; do
+     [ -e "$app/$rel" ] || die "Computer Use runtime missing: $app/$rel"
+@@ -196,7 +198,7 @@ sign_bundle() {
+   verify_computer_use_runtime "$DEST_APP"
+   info "ad-hoc signing (inside out)"
+   find "$DEST_APP" -mindepth 1 \
+-       -path "$DEST_APP/$COMPUTER_USE_REL" -prune -o \
++       \( -path "$DEST_APP/$COMPUTER_USE_REL" -o -path "$DEST_APP/Contents/Resources/codex-cli/CodexCLI.app" \) -prune -o \
+        \( -name '*.app' -o -name '*.framework' -o -name '*.xpc' \
+           -o -name '*.docktileplugin' -o -name '*.dylib' -o -name '*.so' -o -name '*.node' \) -print \
+     | awk '{print gsub(/\//,"/") "\t" $0}' | sort -rn | cut -f2- \
+diff --git a/patch/patches/030-preload-bridge.mjs b/patch/patches/030-preload-bridge.mjs
+index cdefb6a..2c8f267 100644
+--- a/patch/patches/030-preload-bridge.mjs
++++ b/patch/patches/030-preload-bridge.mjs
+@@ -21,6 +21,8 @@ export default {
+       '    setAutoRoute: (enabled) => ipcRenderer.invoke("codexpp:routing-set-auto", enabled),',
+       '    learnThreadOwner: (threadId, accountId) => ipcRenderer.invoke("codexpp:routing-learn-owner", threadId, accountId),',
+       '    forgetThreadOwner: (threadId) => ipcRenderer.invoke("codexpp:routing-forget-owner", threadId),',
++      '    flowBegin: (threadId, accountId) => ipcRenderer.invoke("codexpp:flow-begin", threadId, accountId),',
++      '    flowEnd: (threadId) => ipcRenderer.invoke("codexpp:flow-end", threadId),',
+       '    routingSuggest: (excluded) => ipcRenderer.invoke("codexpp:routing-suggest", excluded),',
+       '    markIneligible: (accountId, reason) => ipcRenderer.invoke("codexpp:routing-mark-ineligible", accountId, reason),',
+       '    clearIneligible: (accountId) => ipcRenderer.invoke("codexpp:routing-clear-ineligible", accountId),',
+diff --git a/patch/patches/090-auto-routing-core.mjs b/patch/patches/090-auto-routing-core.mjs
+index 8f551bf..b89086e 100644
+--- a/patch/patches/090-auto-routing-core.mjs
++++ b/patch/patches/090-auto-routing-core.mjs
+@@ -23,6 +23,7 @@ export const helpers = [
+   `      if (await globalThis.__cxpProviderCall?.('route', _threadId)) return;`,
+   `      const _api = globalThis.__codexpp;`,
+   `      if (!_api || !_threadId) return;`,
++  `      if (_api.routingView?.()?.autoRoute) return;`,
+   `      if (_api.routingView?.()?.threadOwner?.[_threadId]) return;`,
+   `      const _view = _api.accountsSync?.();`,
+   `      const _activeId = _view?.defaultAccountId ?? _view?.activeAccountId;`,
+diff --git a/patch/patches/093-thread-account.mjs b/patch/patches/093-thread-account.mjs
+index 0b4a912..747fb79 100644
+--- a/patch/patches/093-thread-account.mjs
++++ b/patch/patches/093-thread-account.mjs
+@@ -38,8 +38,8 @@ export const helpers = [
+   // Move the engine (not the default) to an account; switches are serialised and skipped while a turn runs.
+   "globalThis.__cxpEngineTo=_accountId=>{const _api=globalThis.__codexpp;if(!_api||!_accountId)return Promise.resolve(null);const _run=()=>{const _now=_api.accountsSync?.();if(!_now)return null;if(_now.activeAccountId===_accountId&&globalThis.__cxpConfirmedAccountId===_accountId)return _now;if(_cxpRunning.size>0)return null;return globalThis.__cxpActivate?.(_accountId,{transient:!0})};_cxpSwitching=(_cxpSwitching??Promise.resolve()).then(_run,_run).catch(()=>null);return _cxpSwitching};",
+   "globalThis.__cxpFollowThread=_threadId=>{try{const _target=globalThis.__cxpThreadTarget(_threadId);return _target?globalThis.__cxpEngineTo(_target):Promise.resolve(null)}catch{return Promise.resolve(null)}};",
+-  "const _cxpPrepareTurn=_threadId=>{const _run=async()=>{if(_cxpRunning.has(_threadId))throw Error(`This chat already has a running message.`);const _target=globalThis.__cxpThreadTarget(_threadId),_api=globalThis.__codexpp,_account=_api?.accountsSync?.()?.accounts?.find(_a=>_a.id===_target);if(!_account)throw Error(`This chat's account is unavailable. Choose an account from the chat header.`);if(_account.usedPercent>=100||_api?.routingView?.()?.learnedIneligible?.[_target])throw Error(`This chat's account has no available Codex quota. Choose another account from the chat header.`);globalThis.__cxpPendingTurnTarget=_target;try{await globalThis.__cxpEngineTo(_target);const _active=_api.accountsSync?.()?.activeAccountId;if(_active!==_target||globalThis.__cxpConfirmedAccountId!==_target)throw Error(_cxpRunning.size?`Another account has a running chat. Wait for it to finish before sending this message.`:`Could not sign in to this chat's account. Sign in again before sending.`);_cxpRunning.add(_threadId)}finally{globalThis.__cxpPendingTurnTarget=null}};const _result=_cxpStarting.then(_run,_run);_cxpStarting=_result.catch(()=>null);return _result};",
+-  "globalThis.__cxpRestoreDefault=()=>{try{const _view=globalThis.__codexpp?.accountsSync?.();const _default=_cxpDefault(_view);return _default&&_default!==_view?.activeAccountId?globalThis.__cxpEngineTo(_default):Promise.resolve(null)}catch{return Promise.resolve(null)}};",
++  "const _cxpPrepareTurn=_threadId=>{const _run=async()=>{if(_cxpRunning.has(_threadId))throw Error(`This chat already has a running message.`);const _api=globalThis.__codexpp;let _target=globalThis.__cxpThreadTarget(_threadId);if(_api?.routingView?.()?.autoRoute&&!globalThis.__cxpThreadOwner(_threadId)){const _choice=await _api.routingSuggest?.();if(!_choice?.accountId)throw Error(`No account has verified available Codex quota. Refresh usage or sign in again.`);_target=_choice.accountId;}const _account=_api?.accountsSync?.()?.accounts?.find(_a=>_a.id===_target);if(!_account)throw Error(`This chat's account is unavailable. Choose an account from the chat header.`);if(_account.usedPercent>=100||_account.usageWindows?.fiveHour?.usedPercent>=100||_api?.routingView?.()?.learnedIneligible?.[_target])throw Error(`This chat's account has no available Codex quota. Choose another account from the chat header.`);globalThis.__cxpPendingTurnTarget=_target;try{await globalThis.__cxpEngineTo(_target);const _active=_api.accountsSync?.()?.activeAccountId;if(_active!==_target||globalThis.__cxpConfirmedAccountId!==_target)throw Error(_cxpRunning.size?`Another account has a running chat. Wait for it to finish before sending this message.`:`Could not sign in to this chat's account. Sign in again before sending.`);await _api.flowBegin?.(_threadId,_target);_cxpRunning.add(_threadId)}finally{globalThis.__cxpPendingTurnTarget=null}};const _result=_cxpStarting.then(_run,_run);_cxpStarting=_result.catch(()=>null);return _result};",
++  "globalThis.__cxpRestoreDefault=()=>{try{if(globalThis.__codexpp?.routingView?.()?.autoRoute)return Promise.resolve(null);const _view=globalThis.__codexpp?.accountsSync?.();const _default=_cxpDefault(_view);return _default&&_default!==_view?.activeAccountId?globalThis.__cxpEngineTo(_default):Promise.resolve(null)}catch{return Promise.resolve(null)}};",
+   // Called from the main layout render with the route's thread id.
+   "globalThis.__cxpPublishThread=_id=>{const _next=typeof _id===`string`&&!_id.endsWith(`new-conversation`)?_id:null;if(_next===globalThis.__cxpActiveThreadId)return;globalThis.__cxpActiveThreadId=_next;globalThis.__cxpRestoreDefault?.()};",
+   // Menu / header action: pin the chat. The engine follows when the next message is sent.
+@@ -50,10 +50,10 @@ export const helpers = [
+   "if(_method===`thread/fork`&&globalThis.__cxpForkModel){_params={..._params,model:globalThis.__cxpForkModel};globalThis.__cxpForkModel=null}",
+   "const _local=_client===globalThis.__cxpClients?.local?.requestClient;",
+   "if(_local&&_method===`turn/start`&&_params?.threadId&&!_params?.model?.startsWith?.(`cxp/`)){await _cxpPrepareTurn(_params.threadId)}",
+-  "try{return await _original(_method,_params,..._rest)}catch(_e){if(_local&&_method===`turn/start`&&_params?.threadId){_cxpRunning.delete(_params.threadId);globalThis.__cxpRestoreDefault?.()}throw _e}}}",
++  "try{return await _original(_method,_params,..._rest)}catch(_e){if(_local&&_method===`turn/start`&&_params?.threadId){globalThis.__codexpp?.flowEnd?.(_params.threadId);_cxpRunning.delete(_params.threadId);globalThis.__cxpRestoreDefault?.()}throw _e}}}",
+   // The manager fans notifications out through addNotificationCallback(methods, notify); notify receives {method, params}.
+   "if(_manager&&!_manager.__cxpThreadAccountsInstalled&&typeof _manager.addNotificationCallback===`function`){_manager.__cxpThreadAccountsInstalled=!0;",
+-  "_manager.addNotificationCallback([`turn/completed`,`turn/failed`],_n=>{try{if(_manager!==globalThis.__cxpClients?.local)return;_cxpRunning.delete(_n?.params?.threadId);if(_cxpRunning.size===0)globalThis.__cxpRestoreDefault?.()}catch{}})}};",
++  "_manager.addNotificationCallback([`turn/completed`,`turn/failed`],_n=>{try{if(_manager!==globalThis.__cxpClients?.local)return;globalThis.__codexpp?.flowEnd?.(_n?.params?.threadId);_cxpRunning.delete(_n?.params?.threadId);if(_cxpRunning.size===0)globalThis.__cxpRestoreDefault?.()}catch{}})}};",
+   "})();"
+ ].join("\n");
+ 
+diff --git a/patch/patches/index.mjs b/patch/patches/index.mjs
+index fc2a297..6832942 100644
+--- a/patch/patches/index.mjs
++++ b/patch/patches/index.mjs
+@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
+ 
+ const dir = path.dirname(fileURLToPath(import.meta.url));
+ const files = fs.readdirSync(dir)
+-  .filter(f => f.endsWith(".mjs") && f !== "index.mjs")
++  .filter(f => f.endsWith(".mjs") && f !== "index.mjs" && f !== "111-profile-stats.mjs" && f !== "096-native-pipe-peers.mjs")
+   .sort((a, b) => a.localeCompare(b));
+ 
+ const patches = [];
+diff --git a/tools/test-thread-account.mjs b/tools/test-thread-account.mjs
+index b0c35df..f57f49e 100644
+--- a/tools/test-thread-account.mjs
++++ b/tools/test-thread-account.mjs
+@@ -98,3 +98,24 @@ assert.equal(context.__cxpThreadOwner("t-new"), "b");
+ assert.equal(await context.__cxpPinThread("t-new", "nope"), null); assert.equal(learned.length, 1, "unknown accounts are rejected");
+ assert.equal(await context.__cxpPinThread(null, "a"), null);
+ console.log("Thread account: publication, transient switch, default restoration, cross-account and unusable-pin rejection, pin-only passed");
++
++// Flow: automatic account choice applies to every unpinned message.
++reset(); routing.autoRoute=true;
++let choice='b',suggestions=0;
++context.__codexpp.routingSuggest=async()=>{suggestions++;return choice?{accountId:choice}:null};
++await run('turn/start',{threadId:'flow-auto'});
++assert.equal(view.activeAccountId,'b');assert.equal(suggestions,1);
++notify('turn/completed','flow-auto');await settle();
++assert.equal(view.activeAccountId,'b','automatic routing keeps the last account rather than switching twice between messages');
++assert.deepEqual(activations,[['b',true]],'one necessary switch, no default restoration');
++choice='a';await run('turn/start',{threadId:'flow-auto'});
++assert.equal(view.activeAccountId,'a');assert.equal(suggestions,2);
++notify('turn/completed','flow-auto');await settle();
++choice=null;const before=calls.length;
++await assert.rejects(run('turn/start',{threadId:'flow-auto'}),/verified available/);
++assert.equal(calls.length,before,'unknown quota never submits');
++choice='b';view.accounts.find(a=>a.id==='b').usageWindows={fiveHour:{usedPercent:100}};
++await assert.rejects(run('turn/start',{threadId:'flow-auto'}),/quota/);
++assert.equal(calls.length,before,'five-hour exhaustion blocks before submission');
++delete view.accounts.find(a=>a.id==='b').usageWindows;
++console.log('Flow automatic routing: every-message selection, fail-closed unknown quota and short-window exhaustion passed');

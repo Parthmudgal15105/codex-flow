@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-12T10:11:16.631Z",
+  "attempts": [],
+  "ledger": {
+    "version": 1,
+    "attempts": {
+      "0f1710a6-1048-43e3-95bf-1c6422c32225": {
+        "at": 1791799637317,
+        "accountId": "flow-a",
+        "status": "reset_observed",
+        "beforeResetAt": 1791817636000,
+        "afterResetAt": 1791817657000,
+        "afterUsedPercent": 0,
+        "model": "gpt-6-luna"
+      }
+    }
+  },
+  "accounts": [
+    {
+      "label": "Account B",
+      "before": {
+        "source": "primary",
+        "bucket": "codex:primary",
+        "usedPercent": 12,
+        "resetAt": 1791801808000,
+        "windowMins": 300
+      },
+      "after": {
+        "source": "primary",
+        "bucket": "codex:primary",
+        "usedPercent": 12,
+        "resetAt": 1791801808000,
+        "windowMins": 300
+      }
+    },
+    {
+      "label": "Account A",
+      "before": {
+        "source": "primary",
+        "bucket": "codex:primary",
+        "usedPercent": 0,
+        "resetAt": 1791817657000,
+        "windowMins": 300
+      },
+      "after": {
+        "source": "primary",
+        "bucket": "codex:primary",
+        "usedPercent": 0,
+        "resetAt": 1791817657000,
+        "windowMins": 300
+      }
+    }
+  ],
+  "selectedAccountUnchanged": true,
+  "credentialsUnchanged": true
+}

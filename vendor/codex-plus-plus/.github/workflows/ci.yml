@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  validate:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install patch dependencies
+        run: npm --prefix patch ci
+
+      - name: Install locked hub tokenizer (no lifecycle scripts)
+        working-directory: hub
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+
+      - name: Syntax check JS files
+        run: |
+          find patch hub tools integrations -type f \( -name "*.mjs" -o -name "*.cjs" -o -name "*.js" \) -not -path "*/node_modules/*" -print0 | xargs -0 -n 1 node --check
+
+      - name: Patch 090 thread/unarchived shape cases
+        run: node tools/test-unarchived-shapes.mjs
+
+      - name: Windows sandbox state adoption contract (synthetic data only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/test-sandbox-state.ps1
+
+      - name: Test apply.mjs --help (expect exit code 0)
+        run: node patch/apply.mjs --help
+
+      - name: Test desktop update compatibility behavior
+        run: |
+          node tools/test-chatgpt-web-contracts.mjs
+          node --test tools/test-native-web-tools.mjs
+          node --test tools/test-web-turn-state.mjs
+          node --test tools/test-web-context.mjs
+          node --test tools/test-web-browser-contract.mjs
+          node --test tools/test-web-model-interaction.mjs
+          node --test tools/test-web-reconnect.mjs
+          node --test tools/test-web-passthrough.mjs
+          node --test tools/test-web-routing.mjs tools/test-web-compaction.mjs tools/test-web-cancel.mjs
+          node --test tools/test-home.cjs
+          node tools/test-chatgpt-web-lifecycle.mjs
+          node tools/test-auth-refresh.mjs
+          node tools/test-windows-integrity.mjs
+          node tools/test-windows-long-paths.mjs
+          node tools/test-mac-integrity.mjs
+          node tools/test-mac-computer-use-signing.mjs
+          node tools/test-mac-keychain.mjs
+          node tools/test-app-server-restore.mjs
+          node tools/test-account-isolation.mjs
+          node tools/test-thread-account.mjs
+          node tools/test-thread-account-header.mjs
+          node tools/test-native-pipe-peers.mjs
+          node tools/test-usage-windows.cjs
+          node tools/test-routing.cjs
+          node tools/test-pool-stats.mjs
+          node --test tools/test-usage-refresh.cjs
+          node --test tools/test-providers.cjs
+          node --test tools/test-provider-client.mjs tools/test-home.cjs
+          node --test tools/test-claude-peers.mjs
+
+      - name: Test apply.mjs --bogus-arg (expect non-zero exit code)
+        run: |
+          if node patch/apply.mjs --bogus-arg; then
+            echo "Expected node patch/apply.mjs --bogus-arg to fail, but it succeeded."
+            exit 1
+          else
+            echo "apply.mjs correctly rejected bogus argument."
+          fi

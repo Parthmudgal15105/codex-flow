@@ -1,0 +1,20 @@
+{
+  "installedService": "/Users/parthmudgal/Library/Application Support/CodexFlowSync",
+  "enabled": true,
+  "validationTests": 17,
+  "realHistoryConvergence": 97,
+  "officialEngineConversationRead": "passed",
+  "currentStatus": {
+    "checkedAt": "2026-10-11T21:39:31.135347+00:00",
+    "directions": {
+      "codexpp\u2192official": {
+        "status": "waiting_for_receiving_app_to_close"
+      },
+      "official\u2192codexpp": {
+        "status": "waiting_for_receiving_app_to_close"
+      }
+    },
+    "lastSuccessfulSync": null
+  },
+  "receivingAppMustBeClosed": true
+}

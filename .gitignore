@@ -1,6 +1,21 @@
 node_modules/
 .DS_Store
-.env*
-.vercel/
-.testing/
 *.log
+
+.testing/
+node_modules/
+.DS_Store
+
+# Local dependencies, credentials, and machine metadata
+.DS_Store
+node_modules/
+.env
+.env.*
+!.env.example
+!.env.sample
+.vercel/
+__pycache__/
+*.pyc
+.venv/
+*.pem
+*.key

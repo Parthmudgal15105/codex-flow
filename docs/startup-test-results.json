@@ -1,0 +1,47 @@
+[
+  {
+    "attempt": 1,
+    "alive": true,
+    "exitCode": null,
+    "primaryWindowReady": true,
+    "engineConnected": true,
+    "fatal": false,
+    "log": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/codex-flow-startup-m21_djnf.log"
+  },
+  {
+    "attempt": 2,
+    "alive": true,
+    "exitCode": null,
+    "primaryWindowReady": true,
+    "engineConnected": true,
+    "fatal": false,
+    "log": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/codex-flow-startup-vxtrret6.log"
+  },
+  {
+    "attempt": 3,
+    "alive": true,
+    "exitCode": null,
+    "primaryWindowReady": true,
+    "engineConnected": true,
+    "fatal": false,
+    "log": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/codex-flow-startup-5heddi_u.log"
+  },
+  {
+    "attempt": 4,
+    "alive": true,
+    "exitCode": null,
+    "primaryWindowReady": true,
+    "engineConnected": true,
+    "fatal": false,
+    "log": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/codex-flow-startup-6wivuxn2.log"
+  },
+  {
+    "attempt": 5,
+    "alive": true,
+    "exitCode": null,
+    "primaryWindowReady": true,
+    "engineConnected": true,
+    "fatal": false,
+    "log": "/var/folders/df/sclx565x7p1d95scl4qnx53m0000gn/T/codex-flow-startup-9vd932j0.log"
+  }
+]

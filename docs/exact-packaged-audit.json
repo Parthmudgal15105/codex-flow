@@ -1,0 +1,58 @@
+{
+  "testedAt": "2026-10-11T18:25:01.964Z",
+  "hub": "/Users/parthmudgal/Code/ParthProject/codex-flow/.testing/exact-scheduler/Codex++.app/Contents/Resources/hub",
+  "checks": [
+    {
+      "name": "reject exhausted short window",
+      "passed": true
+    },
+    {
+      "name": "reject exhausted weekly window",
+      "passed": true
+    },
+    {
+      "name": "reject stale snapshot",
+      "passed": true
+    },
+    {
+      "name": "reject failed usage read",
+      "passed": true
+    },
+    {
+      "name": "honor [object Array] exclusion",
+      "passed": true
+    },
+    {
+      "name": "honor [object Set] exclusion",
+      "passed": true
+    },
+    {
+      "name": "honor [object Object] exclusion",
+      "passed": true
+    },
+    {
+      "name": "honor [object String] exclusion",
+      "passed": true
+    },
+    {
+      "name": "honor [object Array] exclusion",
+      "passed": true
+    },
+    {
+      "name": "honor persistent auth failure",
+      "passed": true
+    },
+    {
+      "name": "temporary quota failure is not permanent ban",
+      "passed": true
+    },
+    {
+      "name": "reject unknown quota",
+      "passed": true
+    },
+    {
+      "name": "decision is certified and excludes credentials",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,185 @@
+===============================================================
+             CODEX++ ROUTING ACCEPTANCE TEST SUITE            
+===============================================================
+
+--- T1: Eligibility Matrix Tests ---
+Policy Note: Whitelist policy. Unrecognized plan strings are excluded (false).
+  [PASS] T1: free -> excluded
+         Expected : false
+         Actual   : false
+  [PASS] T1: go -> excluded
+         Expected : false
+         Actual   : false
+  [PASS] T1: plus -> included
+         Expected : true
+         Actual   : true
+  [PASS] T1: pro -> included
+         Expected : true
+         Actual   : true
+  [PASS] T1: team -> included
+         Expected : true
+         Actual   : true
+  [PASS] T1: business -> included
+         Expected : true
+         Actual   : true
+  [PASS] T1: edu -> included
+         Expected : true
+         Actual   : true
+  [PASS] T1: prolite -> included
+         Expected : true
+         Actual   : true
+  [PASS] T1: ent26 -> included
+         Expected : true
+         Actual   : true
+  [PASS] T1: planType null -> included (low priority)
+         Expected : true
+         Actual   : true
+  [PASS] T1: planType undefined -> included (low priority)
+         Expected : true
+         Actual   : true
+  [PASS] T1: unrecognized plan string -> excluded (whitelist)
+         Expected : false
+         Actual   : false
+  [PASS] T1: learned ineligible -> excluded
+         Expected : false
+         Actual   : false
+  [PASS] T1: temporary usage limit does not permanently exclude Plus
+         Expected : true
+         Actual   : true
+  [PASS] T1: legacy 429 quota marker does not permanently exclude Plus
+         Expected : true
+         Actual   : true
+  [PASS] T1: persistent auth ineligibility remains excluded
+         Expected : false
+         Actual   : false
+
+--- T2: Urgency Scoring Formula Tests ---
+  [PASS] T2 Scenario 1 (remaining 50%, 24 hours, 0 credits)
+         Expected : 2.08333333
+         Actual   : 2.08333333 (diff: 0.00e+0)
+  [PASS] T2 Scenario 2 (remaining 50%, 24 hours, 2 credits -> multiplier 1.3)
+         Expected : 2.70833333
+         Actual   : 2.70833333 (diff: 0.00e+0)
+  [PASS] T2 Scenario 3 (remaining 70%, 12 hours, 4 credits -> cap 3, multiplier 1.45)
+         Expected : 8.45833333
+         Actual   : 8.45833333 (diff: 0.00e+0)
+  [PASS] T2 Edge 1: usedPercent 100% -> null (not eligible)
+         Expected : null
+         Actual   : null
+  [PASS] T2 Edge 2: usedPercent 110% -> null (not eligible)
+         Expected : null
+         Actual   : null
+  [PASS] T2 Edge 3: usedPercent null -> Infinity (low priority)
+         Expected : Infinity
+         Actual   : Infinity
+
+--- T3: chooseAccount Tests ---
+  [PASS] T3: plus 40% chosen from 3-account pool 
+  [REASON JSON]: {
+  "weeklyUsedPercent": 40,
+  "resetsAt": 1700086400000,
+  "shortUsedPercent": null,
+  "threadCount": 0,
+  "urgency": 2.5
+}
+  [PASS] T3 Excluded set: returns null when selected account is excluded
+         Expected : null
+         Actual   : null
+  [PASS] T3 Empty pool: returns null
+         Expected : null
+         Actual   : null
+  [PASS] T3 Tie-breaker: on equal urgency, short window first then thread count (acc-c)
+         Expected : "acc-c"
+         Actual   : "acc-c"
+
+--- T4: routing.json Store and Atomic Write Tests ---
+  [PASS] T4: routing.json write/read roundtrip version
+         Expected : 1
+         Actual   : 1
+  [PASS] T4: routing.json threadOwner match
+         Expected : "acc-plus-40"
+         Actual   : "acc-plus-40"
+  [PASS] T4: transient quota marker is ignored on read
+         Expected : undefined
+         Actual   : undefined
+  [PASS] T4: persistent learnedIneligible match
+         Expected : "auth_ineligible"
+         Actual   : "auth_ineligible"
+  [PASS] T4: routing.json autoRoute value
+         Expected : true
+         Actual   : true
+  [PASS] T4: usageLimitExceeded is not persisted
+         Expected : undefined
+         Actual   : undefined
+  [PASS] T4: auth ineligibility is persisted
+         Expected : "auth_ineligible"
+         Actual   : "auth_ineligible"
+  [PASS] T4: account with refreshed quota returns to routing after a legacy quota error
+         Expected : "acc-transient"
+         Actual   : "acc-transient"
+  [PASS] T4: an exhausted account remains excluded despite transient eligibility recovery
+         Expected : null
+         Actual   : null
+  [PASS] T4: case-insensitive transient errors do not write routing.json
+         Expected : "{\n  \"version\": 1,\n  \"threadOwner\": {\n    \"thread-alpha\": \"acc-plus-40\"\n  },\n  \"learnedIneligible\": {\n    \"acc-broken\": \"auth_ineligible\",\n    \"acc-auth-blocked\": \"auth_ineligible\"\n  },\n  \"autoRoute\": true\n}\n"
+         Actual   : "{\n  \"version\": 1,\n  \"threadOwner\": {\n    \"thread-alpha\": \"acc-plus-40\"\n  },\n  \"learnedIneligible\": {\n    \"acc-broken\": \"auth_ineligible\",\n    \"acc-auth-blocked\": \"auth_ineligible\"\n  },\n  \"autoRoute\": true\n}\n"
+  [PASS] T4: routing.json file mode 0600 (or 600 octal)
+         Expected : "600"
+         Actual   : "600"
+  [PASS] T4: tmp+renameSync atomic write structure present in code 
+
+--- T5: Idempotency Tests ---
+  [PASS] T5: File content does not change after identical learnThreadOwner call (empty diff)
+         Expected : "{\n  \"version\": 1,\n  \"threadOwner\": {\n    \"thread-alpha\": \"acc-plus-40\",\n    \"thread-beta\": \"acc-pro-1\"\n  },\n  \"learnedIneligible\": {\n    \"acc-broken\": \"auth_ineligible\",\n    \"acc-auth-blocked\": \"auth_ineligible\"\n  },\n  \"autoRoute\": true\n}\n"
+         Actual   : "{\n  \"version\": 1,\n  \"threadOwner\": {\n    \"thread-alpha\": \"acc-plus-40\",\n    \"thread-beta\": \"acc-pro-1\"\n  },\n  \"learnedIneligible\": {\n    \"acc-broken\": \"auth_ineligible\",\n    \"acc-auth-blocked\": \"auth_ineligible\"\n  },\n  \"autoRoute\": true\n}\n"
+  [PASS] T5: Second call does not modify file mtime (unnecessary I/O avoided)
+         Expected : 1791743279208.9968
+         Actual   : 1791743279208.9968
+
+--- T5b: forgetThreadOwner ---
+  [PASS] T5b: owner recorded before forget
+         Expected : "acc-pro-1"
+         Actual   : "acc-pro-1"
+  [PASS] T5b: owner removed
+         Expected : null
+         Actual   : null
+  [PASS] T5b: other owners untouched
+         Expected : "acc-pro-1"
+         Actual   : "acc-pro-1"
+  [PASS] T5b: forgetting an unknown or empty id does not rewrite the file
+         Expected : "{\n  \"version\": 1,\n  \"threadOwner\": {\n    \"thread-alpha\": \"acc-plus-40\",\n    \"thread-beta\": \"acc-pro-1\"\n  },\n  \"learnedIneligible\": {\n    \"acc-broken\": \"auth_ineligible\",\n    \"acc-auth-blocked\": \"auth_ineligible\"\n  },\n  \"autoRoute\": true\n}\n"
+         Actual   : "{\n  \"version\": 1,\n  \"threadOwner\": {\n    \"thread-alpha\": \"acc-plus-40\",\n    \"thread-beta\": \"acc-pro-1\"\n  },\n  \"learnedIneligible\": {\n    \"acc-broken\": \"auth_ineligible\",\n    \"acc-auth-blocked\": \"auth_ineligible\"\n  },\n  \"autoRoute\": true\n}\n"
+  [PASS] T5b: no-op forget keeps mtime
+         Expected : 1791743279209.3867
+         Actual   : 1791743279209.3867
+
+--- T6: docs/routing-anchors.md Document and Anchor Verification ---
+  [PASS] T6: docs/routing-anchors.md file exists 
+  [PASS] T6: Surface I (Engine->View) present in document 
+  [PASS] T6: Surface II (Turn Error / Limit Banner) present in document 
+  [PASS] T6: Surface III (New Chat UI) present in document 
+  [PASS] T6: Raw grep -c outputs present in document 
+  [PASS] T6: transient usage limit is not persisted as learned ineligible 
+  [PASS] T6: current failover still excludes the active account 
+
+=== T7: chooseAccount exclusion forms ===
+  [PASS] T7: no exclusion picks the eligible pro account
+         Expected : "pro-1"
+         Actual   : "pro-1"
+  [PASS] T7: string exclusion is honoured
+         Expected : null
+         Actual   : null
+  [PASS] T7: array exclusion is honoured
+         Expected : null
+         Actual   : null
+  [PASS] T7: excluding the exhausted active account still finds the alternate
+         Expected : "pro-1"
+         Actual   : "pro-1"
+  [PASS] T7: Set exclusion is honoured
+         Expected : null
+         Actual   : null
+
+===============================================================
+TEST RESULT: Total: 57, Passed: 57, Failed: 0
+TOTAL MISMATCHES: 0
+===============================================================

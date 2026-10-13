@@ -63,14 +63,18 @@ final class FlowModel: ObservableObject {
     private var worker: Process?
     private var login: Process?
     private var timer: Timer?
-    let node = Bundle.main.object(forInfoDictionaryKey: "FlowNodeExecutable") as? String ?? "/opt/homebrew/bin/node"
-    let cli = Bundle.main.object(forInfoDictionaryKey: "FlowCLIPath") as? String ?? ""
+    let node = "/Users/parthmudgal/.nvm/versions/node/v24.21.0/bin/node"
+    let cli = "/Users/parthmudgal/Code/ParthProject/codex-flow/src/cli.js"
     let dataURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex-flow/ui/library.json")
     var current: ChatSession? { library.chats.first { $0.id == library.selected } }
     var project: String { current?.project ?? "" }
     var messages: [ChatMessage] { current?.messages ?? [] }
     init() {
         if let data = try? Data(contentsOf: dataURL), let saved = try? JSONDecoder().decode(Library.self, from: data) { library = saved }
+        if library.recent.isEmpty {
+            let base = "/Users/parthmudgal/Code/ParthProject"
+            library.recent = ((try? FileManager.default.contentsOfDirectory(atPath: base)) ?? []).filter { !$0.hasPrefix(".") && !["node_modules","dist"].contains($0) }.map { base + "/" + $0 }.filter { var dir: ObjCBool = false; return FileManager.default.fileExists(atPath: $0, isDirectory: &dir) && dir.boolValue }.sorted()
+        }
         if library.chats.isEmpty, let old = UserDefaults.standard.string(forKey: "projectPath"), !old.isEmpty { newChat(project: old) }
         request = current?.draft ?? ""
         reloadFiles(); refresh()
@@ -138,7 +142,7 @@ final class FlowModel: ObservableObject {
         let p = Process(); p.executableURL = URL(fileURLWithPath: node); p.arguments = [cli] + args
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = URL(fileURLWithPath: node).deletingLastPathComponent().path + ":/usr/bin:/bin:/usr/sbin:/sbin"
-        env["CODEX_FLOW_CODEX"] = Bundle.main.object(forInfoDictionaryKey: "FlowCodexExecutable") as? String ?? "codex"
+        env["CODEX_FLOW_CODEX"] = "/Users/parthmudgal/.nvm/versions/node/v24.21.0/bin/codex"
         p.environment = env; p.standardInput = FileHandle.nullDevice
         return p
     }

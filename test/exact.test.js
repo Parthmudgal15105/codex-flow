@@ -7,8 +7,10 @@ const {solve}=require('../src/exact-worker.cjs');
 // Independent exhaustive integer-work oracle, with no LP builder or solver helpers.
 function oracle(accounts,first,preferred,slots,commitment=0,penalty=0,cost=0){
  let best=-Infinity,bestSwitches=Infinity;
+ const preferredIndex=accounts.findIndex(a=>a.name===preferred);
+ const startup=preferredIndex>=0&&preferredIndex!==first?Math.min(cost,commitment):0;
  function visit(t,last,used,score,early,switches){
-  if(t===slots.length){const objective=score-penalty*Math.max(0,commitment-early);if(objective>best){best=objective;bestSwitches=switches}else if(objective===best){bestSwitches=Math.min(bestSwitches,switches)}return}
+  if(t===slots.length){const objective=score-penalty*Math.max(0,commitment-startup-early);if(objective>best){best=objective;bestSwitches=switches}else if(objective===best){bestSwitches=Math.min(bestSwitches,switches)}return}
   const [start,end,weight]=slots[t],duration=end-start;
   for(let a=0;a<accounts.length;a++){
    if((t===0||start<commitment)&&a!==first)continue;
@@ -69,4 +71,16 @@ test('continuous replanning has no assumed break regardless of session age',()=>
 test('switching time spans a reset-created short slot',async()=>{
  const input={accounts:[{name:'a',state:'ready',pools:[{left:10,full:10,reset:0.5}]}],preferred:'other',options:{blocks:[[0,4,1]],stepMinutes:1,commitmentMinutes:0,switchMinutes:2,continuityPenalty:0}};
  const r=(await solve(input))[0];assert.ok(Math.abs(r.estimatedWeightedWorkMinutes-2)<1e-5);assert.ok(r.schedule.filter(s=>s.end<=2).every(s=>s.workMinutes<1e-5));
+});
+test('startup switch consumes work time once and is not a quota shortfall',async()=>{
+ const results=await solve({accounts:[{name:'a',state:'ready',pools:[{left:30,full:30,reset:999}]}],preferred:'other',options:{blocks:[[0,20,1]],switchMinutes:2}});
+ assert.ok(Math.abs(results[0].estimatedWeightedWorkMinutes-18)<1e-5);
+ assert.ok(Math.abs(results[0].quotaShortfallMinutes)<1e-5);
+ assert.equal(results[0].switches,1);
+});
+test('inventing a startup switch cannot conceal a real quota shortfall',async()=>{
+ const [r]=await solve({accounts:[{name:'a',state:'ready',pools:[{left:3,full:30,reset:999}]}],preferred:'a',options:{blocks:[[0,20,1]],switchMinutes:10}});
+ assert.ok(Math.abs(r.quotaShortfallMinutes-12)<1e-5);
+ assert.ok(Math.abs(r.estimatedWeightedWorkMinutes-(3-1.5*12))<1e-5);
+ assert.equal(r.switches,0);
 });

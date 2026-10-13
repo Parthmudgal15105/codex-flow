@@ -1,0 +1,352 @@
+import { matchOnce } from "../lib/anchor.mjs";
+import * as acorn from 'acorn';
+import { visit } from '../lib/ast.mjs';
+
+/**
+ * Patch 091: Rate Limit Failover
+ *
+ * Discovery notes (docs/routing-anchors.md):
+ * - Surface 2: Turn limit/quota banner component (Z0s) and error notification listener (dpr).
+ * - When rate limit is reached, offer one-click switch to next best eligible account.
+ * - If no other eligible account exists, show aggregated quota warning and reset timing.
+ * - Treat usageLimitExceeded as a transient signal; the active account is excluded
+ *   only from the current failover suggestion and is never persisted as ineligible.
+ */
+
+const NAME = "[A-Za-z_$][\\w$]*";
+const MARKER = "_cxpRateLimitFailover";
+const FAILOVER_CARD = "_cxpFailoverCard";
+
+function reactNamespace(source) {
+  const hooksPattern = `\\(0,(${NAME})\\.useState\\)`;
+  for (const match of source.matchAll(new RegExp(hooksPattern, "g"))) {
+    const ns = match[1];
+    if (source.includes(`(0,${ns}.useEffect)`)) return ns;
+  }
+  throw new Error("react namespace not found");
+}
+
+function failoverBlock({ jsx, react }) {
+  return [
+    `/*_cxpPoolStats:start*/`,
+    `function _cxpPoolStats(accounts, now) {`,
+    `  const _list = Array.isArray(accounts) ? accounts : [];`,
+    `  const rows = _list.map((_a) => ({`,
+    `    id: _a?.id,`,
+    `    label: _a?.label ?? _a?.email ?? _a?.id,`,
+    `    usedPercent: typeof _a?.usedPercent === "number" ? _a.usedPercent : null,`,
+    `    resetAt: typeof _a?.resetAt === "number" ? _a.resetAt : null,`,
+    `    windowMins: typeof _a?.windowMins === "number" ? _a.windowMins : null,`,
+    `    weight: typeof _a?.planWeight === "number" && _a.planWeight > 0 ? _a.planWeight : 1`,
+    `  }));`,
+    `  const known = rows.filter((_r) => typeof _r.usedPercent === "number");`,
+    `  const avgRemainingPct = known.length > 0`,
+    `    ? known.reduce((_s, _r) => _s + _r.weight * (100 - _r.usedPercent), 0) / known.reduce((_s, _r) => _s + _r.weight, 0)`,
+    `    : null;`,
+    `  const allKnownExhausted = known.length > 0 && known.every((_r) => _r.usedPercent >= 100);`,
+    `  const resets = rows.map((_r) => _r.resetAt).filter((_v) => typeof _v === "number");`,
+    `  const earliestResetAt = resets.length > 0 ? Math.min(...resets) : null;`,
+    `  return {`,
+    `    rows,`,
+    `    known,`,
+    `    avgRemainingPct,`,
+    `    allKnownExhausted,`,
+    `    earliestResetAt`,
+    `  };`,
+    `}`,
+    `function _cxpPoolMessage(_isAuto, _stats) {`,
+    `  if (!_isAuto) return {`,
+    `    title: \`Automatic routing is off\`,`,
+    `    subtitle: \`Enable it from the account menu so chats fail over automatically when a quota is hit.\``,
+    `  };`,
+    `  if (_stats && _stats.allKnownExhausted) return {`,
+    `    title: \`All subscription quotas are exhausted\`,`,
+    `    subtitle: _stats.earliestResetAt != null`,
+    `      ? (\`Earliest quota reset: \` + new Intl.DateTimeFormat(\`en-US\`, { weekday: \`long\`, hour: \`2-digit\`, minute: \`2-digit\` }).format(new Date(_stats.earliestResetAt)))`,
+    `      : \`Reset time unknown.\``,
+    `  };`,
+    `  return {`,
+    `    title: \`No eligible account available\`,`,
+    `    subtitle: \`Other accounts are ineligible or their quota is unknown.\``,
+    `  };`,
+    `}`,
+    `/*_cxpPoolStats:end*/`,
+    ``,
+    `function ${FAILOVER_CARD}(_p) {`,
+    `  const _tones = [\`--color-chart-green\`, \`--color-chart-blue\`, \`--color-chart-yellow\`, \`--color-chart-red\`, \`--color-chart-orange\`];`,
+    `  const _api = globalThis.__codexpp;`,
+    `  const [_view] = (0, ${react}.useState)(() => {`,
+    `    try { return _api?.accountsSync?.() ?? null; } catch { return null; }`,
+    `  });`,
+    `  const [_routing] = (0, ${react}.useState)(() => {`,
+    `    try { return _api?.routingView?.() ?? null; } catch { return null; }`,
+    `  });`,
+    `  const [_suggest, _setSuggest] = (0, ${react}.useState)(null);`,
+    `  const [_busy, _setBusy] = (0, ${react}.useState)(!1);`,
+    `  const [_credits, _setCredits] = (0, ${react}.useState)(null);`,
+    ``,
+    `  (0, ${react}.useEffect)(() => {`,
+    `    let _alive = !0;`,
+    `    let _self = null;`,
+    `    try { _self = _api?.accountsSync?.()?.activeAccountId ?? null; } catch {}`,
+    `    Promise.resolve(_api?.routingSuggest?.(_self ? [_self] : void 0)).then((_res) => {`,
+    `      if (_alive) _setSuggest(_res ?? null);`,
+    `    }).catch(() => {});`,
+    `    return () => { _alive = !1; };`,
+    `  }, [_view?.activeAccountId]);`,
+    ``,
+    `  (0, ${react}.useEffect)(() => {`,
+    `    let _alive = !0;`,
+    `    const _activeId = _view?.activeAccountId;`,
+    `    if (_activeId && globalThis.__cxpResets?.credits) {`,
+    `      Promise.resolve(globalThis.__cxpResets.credits(_activeId)).then((_res) => {`,
+    `        if (_alive && _res?.ok && typeof _res?.data?.available_count === "number" && _res.data.available_count > 0) {`,
+    `          _setCredits(_res.data.available_count);`,
+    `        }`,
+    `      }).catch(() => {});`,
+    `    }`,
+    `    return () => { _alive = !1; };`,
+    `  }, [_view?.activeAccountId]);`,
+    ``,
+    `  const _activeId = _view?.activeAccountId;`,
+    `  const _accounts = _view?.accounts ?? [];`,
+    `  const _other = _suggest?.account && _suggest.account.id !== _activeId ? _suggest.account : null;`,
+    `  const _stats = _cxpPoolStats(_accounts, Date.now());`,
+    ``,
+    `  const _onSwitch = async () => {`,
+    `    if (!_other || _busy) return;`,
+    `    _setBusy(!0);`,
+    `    try {`,
+    `      const _switched = await globalThis.__cxpActivate?.(_other.id);`,
+    `      const _threadId = globalThis.__cxpActiveThreadId ?? null;`,
+    `      if (_switched && _threadId) { try { await _api?.learnThreadOwner?.(_threadId, _other.id); } catch {} }`,
+    `    } finally {`,
+    `      _setBusy(!1);`,
+    `    }`,
+    `  };`,
+    ``,
+    `  const _isAuto = Boolean(_routing?.autoRoute);`,
+    `  const _msg = _cxpPoolMessage(_isAuto, _stats);`,
+    `  const _title = _msg.title;`,
+    `  const _subtitle = _msg.subtitle;`,
+    ``,
+    `  const _rows = _stats.rows.map((_r, _i) => {`,
+    `    const _tone = _tones[_i % _tones.length];`,
+    `    const _initial = (_r.label ?? _r.id ?? \`?\`).trim().slice(0, 1).toUpperCase();`,
+    `    const _resetStr = _r.resetAt != null`,
+    `      ? new Intl.DateTimeFormat(\`en-US\`, { hour: \`2-digit\`, minute: \`2-digit\` }).format(new Date(_r.resetAt))`,
+    `      : null;`,
+    `    return (0, ${jsx}.jsxs)(\`div\`, {`,
+    `      className: \`flex items-center justify-between gap-2\`,`,
+    `      style: { paddingTop: 2, paddingBottom: 2 },`,
+    `      children: [`,
+    `        (0, ${jsx}.jsxs)(\`div\`, {`,
+    `          className: \`flex items-center min-w-0\`,`,
+    `          style: { gap: 6 },`,
+    `          children: [`,
+    `            (0, ${jsx}.jsx)(\`span\`, {`,
+    `              className: \`flex h-4 w-4 shrink-0 items-center justify-center rounded-full font-medium leading-none\`,`,
+    `              style: {`,
+    `                fontSize: 9,`,
+    `                backgroundColor: \`color-mix(in srgb, var(\` + _tone + \`, #8a8a8a) 20%, transparent)\`,`,
+    `                color: \`var(\` + _tone + \`, #b4b4b4)\``,
+    `              },`,
+    `              children: _initial`,
+    `            }),`,
+    `            (0, ${jsx}.jsxs)(\`div\`, {`,
+    `              className: \`flex flex-col min-w-0 leading-tight\`,`,
+    `              children: [`,
+    `                (0, ${jsx}.jsx)(\`span\`, {`,
+    `                  className: \`truncate font-medium text-codex-primary\`,`,
+    `                  children: _r.label`,
+    `                }),`,
+    `                _resetStr != null ? (0, ${jsx}.jsx)(\`span\`, {`,
+    `                  className: \`text-codex-description\`,`,
+    `                  style: { fontSize: 10 },`,
+    `                  children: _resetStr`,
+    `                }) : null`,
+    `              ]`,
+    `            })`,
+    `          ]`,
+    `        }),`,
+    `        (0, ${jsx}.jsx)(\`span\`, {`,
+    `          className: \`shrink-0 font-medium text-codex-description\`,`,
+    `          children: _r.usedPercent != null ? (_r.usedPercent + \`%\`) : \`—\``,
+    `        })`,
+    `      ]`,
+    `    }, _r.id ?? _i);`,
+    `  });`,
+    ``,
+    `  const _creditNode = typeof _credits === "number" && _credits > 0 ? (`,
+    `    (0, ${jsx}.jsx)(\`div\`, {`,
+    `      className: \`text-codex-description pt-1\`,`,
+    `      style: { fontSize: 11 },`,
+    `      children: \`Quota can be restored with \` + _credits + \` reset credit(s).\``,
+    `    })`,
+    `  ) : null;`,
+    ``,
+    `  const _action = _other ? (`,
+    `    (0, ${jsx}.jsxs)(\`div\`, {`,
+    `      className: \`mt-2 flex items-center justify-between rounded bg-codex-surface-secondary p-2 text-xs\`,`,
+    `      children: [`,
+    `        (0, ${jsx}.jsxs)(\`div\`, {`,
+    `          className: \`flex flex-col\`,`,
+    `          style: { gap: 2 },`,
+    `          children: [`,
+    `            (0, ${jsx}.jsxs)(\`span\`, {`,
+    `              className: \`font-medium text-codex-primary\`,`,
+    `              children: [\`Eligible account: \`, _other.label ?? _other.email ?? _other.id]`,
+    `            }),`,
+    `            (0, ${jsx}.jsx)(\`span\`, {`,
+    `              className: \`text-codex-description\`,`,
+    `              children: \`Quota exceeded. You can rotate to this account.\``,
+    `            })`,
+    `          ]`,
+    `        }),`,
+    `        (0, ${jsx}.jsx)(\`button\`, {`,
+    `          className: \`ml-2 inline-flex items-center rounded bg-primary px-2.5 py-1 text-xs font-medium text-white hover:opacity-90 transition-opacity\`,`,
+    `          onClick: _onSwitch,`,
+    `          disabled: _busy,`,
+    `          children: _busy ? \`Switching...\` : (\`Switch to \` + (_other.label ?? \`account\`))`,
+    `        })`,
+    `      ]`,
+    `    })`,
+    `  ) : (`,
+    `    (0, ${jsx}.jsxs)(\`div\`, {`,
+    `      className: \`mt-2 flex flex-col gap-2 rounded bg-codex-surface-secondary p-2 text-xs w-full\`,`,
+    `      children: [`,
+    `        (0, ${jsx}.jsxs)(\`div\`, {`,
+    `          className: \`flex flex-col\`,`,
+    `          style: { gap: 2 },`,
+    `          children: [`,
+    `            (0, ${jsx}.jsx)(\`span\`, {`,
+    `              className: \`font-medium text-codex-primary\`,`,
+    `              children: _title`,
+    `            }),`,
+    `            (0, ${jsx}.jsx)(\`span\`, {`,
+    `              className: \`text-codex-description\`,`,
+    `              children: _subtitle`,
+    `            })`,
+    `          ]`,
+    `        }),`,
+    `        _rows.length > 0 ? (0, ${jsx}.jsx)(\`div\`, {`,
+    `          className: \`flex flex-col gap-1 pt-1\`,`,
+    `          children: _rows`,
+    `        }) : null,`,
+    `        _creditNode`,
+    `      ]`,
+    `    })`,
+    `  );`,
+    ``,
+    `  return (0, ${jsx}.jsxs)(\`div\`, {`,
+    `    className: \`flex flex-col w-full\`,`,
+    `    children: [_p.original, _action]`,
+    `  });`,
+    `}`
+  ].join("\n");
+}
+
+export function __test_failoverCode(jsx, react) {
+  return failoverBlock({ jsx: jsx ?? "jsx", react: react ?? "React" });
+}
+
+const helpers = [
+  `;(()=>{`,
+  `  const ${MARKER} = true;`,
+  `})();`
+].join("\n");
+
+const DPR_PATTERN = `(${NAME})\\.params\\.error\\.codexErrorInfo===\`usageLimitExceeded\`&&`;
+
+const BANNER_ID = "codex.upsellBanner.plus.headline.noReset";
+const BANNER_WINDOW = 20000;
+
+const Z0S_RETURN_PATTERN =
+  `(${NAME})\\[(\\d+)\\]=(${NAME})\\):\\3=\\1\\[\\2\\],\\3\\}` +
+  `function (${NAME})\\((${NAME})\\)\\{let ${NAME}=\\(0,${NAME}\\.c\\)\\(\\d+\\),`;
+
+export const bannerPatch = {
+  id: "092-rate-limit-banner",
+  description: "One-click switch to an eligible account in the rate limit banner",
+  glob: "webview/assets/app-*.js",
+  select: ["codex.upsellBanner.plus.headline.noReset", "trackUsageLimitEvents:"],
+  marker: FAILOVER_CARD,
+  apply(source) {
+    if (source.includes('trackUsageLimitEvents:')) {
+      const tree=acorn.parse(source,{ecmaVersion:'latest',sourceType:'module'}),candidates=[];
+      visit(tree,(n,a)=>{
+        if(n.type!=='ObjectPattern')return;
+        const keys=new Set(n.properties.map(p=>p.key?.name));
+        if(['banner','rateLimitStatus','trackUsageLimitEvents','renderContent'].every(k=>keys.has(k)))candidates.push(a.findLast(f=>f.type==='FunctionDeclaration'));
+      });
+      if(candidates.length!==1)throw Error('Usage banner view contract is not unique');
+      const fn=candidates[0],props=fn.params[0].name,body=source.slice(fn.start,fn.end);
+      const [,react]=matchOnce(body,`\\(0,(${NAME})\\.useRef\\)\\(null\\)`,'usage banner React namespace');
+      const calls=[];visit(fn,n=>{if(n.type==='CallExpression'&&n.callee.type==='SequenceExpression'&&n.callee.expressions.at(-1)?.property?.name==='jsx')calls.push(n.callee.expressions.at(-1).object.name)});
+      const runtimes=[...new Set(calls)];if(runtimes.length!==1)throw Error('Usage banner JSX namespace is not unique');
+      const jsx=runtimes[0],ret=fn.body.body.findLast(n=>n.type==='ReturnStatement');
+      const value=ret.argument.type==='SequenceExpression'?ret.argument.expressions.at(-1):ret.argument;
+      const original=source.slice(value.start,value.end);
+      const wrapped=`${props}.sendBlocked&&!['luna_reserve','image_generation_limit_reached'].includes(${props}.banner?.banner_type)?(0,${jsx}.jsx)(${FAILOVER_CARD},{original:${original}}):${original}`;
+      return source.slice(0,fn.start)+failoverBlock({jsx,react})+'\n'+source.slice(fn.start,value.start)+wrapped+source.slice(value.end);
+    }
+    const bannerId = matchOnce(source, BANNER_ID.replace(/[.]/g, "\\."), "upsell banner i18n id");
+    const bannerWindow = source.slice(bannerId.index, bannerId.index + BANNER_WINDOW);
+    const z0sMatch = matchOnce(bannerWindow, Z0S_RETURN_PATTERN, "Z0s return statement");
+
+    const returnVar = z0sMatch[3];
+    const z0sIndex = bannerId.index + z0sMatch.index;
+
+    // Scan window around Z0s to extract JSX namespace
+    const windowStart = Math.max(0, z0sIndex - 5000);
+    const windowSource = source.slice(windowStart, z0sIndex);
+
+    const [, jsx] = matchOnce(windowSource, `\\(0,(${NAME})\\.jsx\\)\\((${NAME}),\\{Icon:`, "JSX namespace in banner window");
+    const react = reactNamespace(source);
+
+    const failoverCode = failoverBlock({ jsx, react });
+
+    // The matched region spans the memoized return expression of the
+    // banner component and the head of the next function definition:
+    //   t[137]=<v>):<v>=t[137],<v>}function Next(e){...
+    // The memo slot caches the raw element in both branches; the comma tail
+    // yields the rendered value. Wrap that final value so both branches are
+    // covered, and splice the helper function in at the statement boundary
+    // between the two function definitions (never inside an expression).
+    const full = z0sMatch[0];
+    const nextFnOffset = full.lastIndexOf("function ");
+    if (nextFnOffset === -1) throw new Error("next function boundary not found");
+    const headPart = full.slice(0, nextFnOffset);
+    const nextFnPart = full.slice(nextFnOffset);
+
+    const tailToken = `,${returnVar}}`;
+    const tailIndex = headPart.lastIndexOf(tailToken);
+    if (tailIndex === -1) throw new Error("memo tail not found");
+    const headWrapped =
+      headPart.slice(0, tailIndex) +
+      `,(0,${jsx}.jsx)(${FAILOVER_CARD},{original:${returnVar}})}`;
+
+    const patched =
+      source.slice(0, z0sIndex) +
+      headWrapped +
+      "\n" +
+      failoverCode +
+      "\n" +
+      nextFnPart +
+      source.slice(z0sIndex + z0sMatch[0].length);
+    return patched;
+  }
+};
+
+export default {
+  id: "091-rate-limit-failover",
+  description: "Preserve native quota handling without persisting transient ineligibility",
+  glob: "webview/assets/app-initial-*.js",
+  marker: MARKER,
+  apply(source) {
+    // Keep a compatibility marker and validate the protocol anchor, while leaving
+    // native error handling intact. Patch 092 supplies the transient failover UI.
+    matchOnce(source, DPR_PATTERN, "usageLimitExceeded listener");
+    return `${helpers}\n${source}`;
+  }
+};

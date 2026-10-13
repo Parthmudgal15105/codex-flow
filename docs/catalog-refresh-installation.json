@@ -1,0 +1,11 @@
+{
+  "installed": "/Users/parthmudgal/Applications/Codex++.app",
+  "backup": "/Users/parthmudgal/Library/Application Support/CodexPP/backups/Codex++-before-catalog-refresh-20261013T055006Z.app-backup",
+  "activation": "quit and reopen Codex++; current running process preserved",
+  "verification": [
+    "4 routing/catalog tests passed",
+    "isolated authenticated model/list includes gpt-6.1-sol",
+    "real engine mock gateway includes native GPT-6.1 and Web models",
+    "codesign strict verification passed"
+  ]
+}

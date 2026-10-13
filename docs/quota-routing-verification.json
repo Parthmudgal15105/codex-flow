@@ -1,0 +1,11 @@
+{
+  "selected": "Account B",
+  "available": true,
+  "elapsedMs": 4813,
+  "confidence": "verified-availability",
+  "certificate": {
+    "status": "VerifiedAvailable",
+    "optimal": false,
+    "schedulerFailure": "Scheduler could not prove optimality: Time limit reached"
+  }
+}

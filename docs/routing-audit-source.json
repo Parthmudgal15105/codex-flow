@@ -1,0 +1,46 @@
+{
+  "testedAt": "2026-10-11T18:06:41.005Z",
+  "hub": "/Users/parthmudgal/Code/ParthProject/codex-flow/vendor/codex-plus-plus/hub",
+  "checks": [
+    {
+      "name": "reject exhausted short window",
+      "passed": true
+    },
+    {
+      "name": "reject exhausted weekly window",
+      "passed": true
+    },
+    {
+      "name": "reject stale snapshot",
+      "passed": true
+    },
+    {
+      "name": "reject failed usage read",
+      "passed": true
+    },
+    {
+      "name": "honor array exclusions",
+      "passed": true
+    },
+    {
+      "name": "honor Set exclusions",
+      "passed": true
+    },
+    {
+      "name": "honor persistent auth failure",
+      "passed": true
+    },
+    {
+      "name": "temporary quota failure is not permanent ban",
+      "passed": true
+    },
+    {
+      "name": "reject unknown quota",
+      "passed": true
+    },
+    {
+      "name": "reject invalid duration",
+      "passed": true
+    }
+  ]
+}

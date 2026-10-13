@@ -43,3 +43,41 @@ test('deterministic decisions and no input mutation', () => {
   assert.equal(recommend(input,null,new Set(),{},now).account.name,'a');
   assert.deepEqual(input,copy);
 });
+test('screenshot regression: use A before its earlier reset without losing modeled work',()=>{
+ const a=account('a',98,126.807),b=account('b',14,186.457);
+ a.windows.push({...account('a',64,8316,10080).windows[0],bucket:'weekly'});
+ b.windows.push({...account('b',67,8806,10080).windows[0],bucket:'weekly'});
+ const history={
+  [key(b,b.windows[0])]:{rate:0.7243189327160526,samples:10},
+  [key(b,b.windows[1])]:{rate:0.12972397980197634,samples:3}
+ };
+ const r=recommend([a,b],'b',new Set(),history,now,{blocks:[[0,480,1]]});
+ assert.equal(r.account.name,'a');
+ assert.equal(r.certificate.model,'finite-horizon-v3');
+ assert.ok(r.certificate.selectionGap<=1e-5);
+ assert.ok(Math.abs(r.scores[0].estimatedProductiveMinutes-r.scores[1].estimatedProductiveMinutes)<1e-5);
+ assert.ok(r.schedule.filter(s=>s.start<15&&s.account==='a').reduce((n,s)=>n+s.workMinutes,0)>=13-1e-5);
+});
+test('earlier reset breaks equal-capacity ties ahead of active-account preference',()=>{
+ const r=recommend([account('a',80,30),account('b',80,60)],'b',new Set(),{},now,{blocks:[[0,90,1]],switchMinutes:0});
+ assert.equal(r.account.name,'a');
+ assert.ok(r.certificate.selectionGap<=1e-5);
+});
+test('earlier reset never overrides productive time lost to switching',()=>{
+ const r=recommend([account('a',80,30),account('b',80,60)],'b',new Set(),{},now,{blocks:[[0,90,1]]});
+ assert.equal(r.account.name,'b');
+ assert.ok(r.scores[0].estimatedWeightedWorkMinutes>r.scores[1].estimatedWeightedWorkMinutes+1e-5);
+});
+test('reset priority does not override a real continuity or weekly bottleneck',()=>{
+ const a=account('a',98,126);
+ a.windows.push({...account('a',2,9000,10080).windows[0],bucket:'weekly'});
+ const r=recommend([a,account('b',80,186)],'b',new Set(),{},now,{blocks:[[0,480,1]]});
+ assert.equal(r.account.name,'b');
+});
+test('past, unknown and outside-horizon resets do not cause unnecessary switches',()=>{
+ for(const reset of [-1,null,9000]){
+  const a=account('a',80,reset);
+  if(reset===null)a.windows[0].resetsAt=null;
+  assert.equal(recommend([a,account('b',80,9000)],'b',new Set(),{},now,{blocks:[[0,20,1]]}).account.name,'b');
+ }
+});

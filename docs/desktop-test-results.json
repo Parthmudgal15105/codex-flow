@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-11",
+  "sourceVersion": "26.1007.30912 (20156)",
+  "installedApp": "/Users/parthmudgal/Applications/Codex++.app",
+  "checks": {
+    "existingFlowTests": "17/17 passed",
+    "upstreamRoutingTests": "57/57 passed",
+    "historyIsolationTests": "9/9 passed",
+    "perMessageRouting": "passed",
+    "explicitPinsAndSwitchLocks": "passed",
+    "sameConversationB_A_B": "passed",
+    "imageUnderstanding": "passed",
+    "realSandboxedFileWrite": "passed",
+    "originalAppSignature": "passed",
+    "copiedAppSignature": "passed",
+    "installedPerMessagePatch": "verified",
+    "nativePeerAuthorizationBypass": "omitted",
+    "startupCrashCause": "framework integrity dictionary digest was not updated by upstream installer",
+    "frameworkIntegrityRepair": "applied, idempotent, validation remains enabled",
+    "frameworkSignature": "passed",
+    "coldStartup": "5/5 fresh launches passed: primary window ready, engine initialized, process alive, no fatal error"
+  },
+  "unverified": [
+    "clipboard image paste",
+    "UI navigation through account switching",
+    "native desktop integrations",
+    "visual rendering beyond window-ready event"
+  ]
+}

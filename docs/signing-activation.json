@@ -1,0 +1,8 @@
+{
+  "identity": "F41632822BBA98C3BFB722DF8BEEC77172E8D798",
+  "designatedRequirement": "identifier \"com.local.codexpp\" and certificate leaf = H\"f41632822bba98c3bfb722df8beec77172e8d798\"",
+  "changedResourceResealPreservesIdentity": true,
+  "status": "installed; takes effect on next app launch",
+  "installedApp": "/Users/parthmudgal/Applications/Codex++.app",
+  "backup": "/Users/parthmudgal/Library/Application Support/CodexPP/backups/Codex++-before-certificate-20261013T063452Z.app-backup"
+}

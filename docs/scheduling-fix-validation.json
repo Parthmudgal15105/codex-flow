@@ -1,0 +1,62 @@
+{
+  "snapshot": "Screenshot quota levels: A 98% short/64% weekly with the earlier reset; B 14% short/67% weekly. Reset countdowns are recorded in scores.",
+  "selected": "Account A",
+  "certificate": {
+    "status": "Optimal",
+    "method": "HiGHS mixed-integer branch-and-cut",
+    "relativeGap": 0,
+    "absoluteTolerance": 1e-05,
+    "model": "finite-horizon-v3",
+    "objectiveValue": 214.98923125,
+    "objective": "weighted productive minutes minus quota-related initial continuity shortfall; startup switch time charged once",
+    "tieBreak": [
+      "earliest reported reset with remaining allowance within horizon",
+      "fewest switches",
+      "active account",
+      "account identifier"
+    ],
+    "blocks": [
+      [
+        0,
+        480,
+        1
+      ]
+    ],
+    "switchMinutes": 2,
+    "continuityPenalty": 1.5,
+    "stepMinutes": 1,
+    "commitmentMinutes": 15,
+    "bestObjectiveValue": 214.98923125,
+    "selectionGap": 0
+  },
+  "scores": [
+    {
+      "account": "Account A",
+      "estimatedWeightedWorkMinutes": 214.98923125,
+      "estimatedProductiveMinutes": 214.98923125,
+      "quotaShortfallMinutes": 0,
+      "nextResetMinutes": 124.8578,
+      "switches": 2
+    },
+    {
+      "account": "Account B",
+      "estimatedWeightedWorkMinutes": 214.98923125,
+      "estimatedProductiveMinutes": 214.98923125000002,
+      "quotaShortfallMinutes": 0,
+      "nextResetMinutes": 184.5078,
+      "switches": 1
+    }
+  ],
+  "nodeVersion": "v24.21.0",
+  "validation": {
+    "testSuite": {
+      "passed": 49,
+      "failed": 0
+    },
+    "exhaustiveOracle": {
+      "seededInstances": 80,
+      "firstAccountComparisons": 160
+    },
+    "packagedRuntime": "bundled Node and packaged HiGHS; frozen quota snapshot; no live account switch"
+  }
+}

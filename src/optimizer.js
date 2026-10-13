@@ -42,10 +42,17 @@ function prepareRecommendation(accounts, preferred, excluded, history, now, opti
 }
 function finishRecommendation(result, accounts, preferred, history) {
  if(!result?.results?.length)return {account:null,reason:result?.error||'Exact scheduler unavailable; no unverified route selected.',confidence:'unavailable'};
- const ranked=result.results.sort((a,b)=>Math.abs(b.estimatedWeightedWorkMinutes-a.estimatedWeightedWorkMinutes)>1e-5?b.estimatedWeightedWorkMinutes-a.estimatedWeightedWorkMinutes:a.switches-b.switches||Number(b.account===preferred)-Number(a.account===preferred)||a.account.localeCompare(b.account));
+ // Compare every route with the same optimum, avoiding a non-transitive
+ // pairwise epsilon comparator. Reset urgency never sacrifices modeled work.
+ const optimum=Math.max(...result.results.map(r=>r.estimatedWeightedWorkMinutes));
+ const reset=r=>r.nextResetMinutes??Infinity;
+ const tie=(a,b)=>reset(a)-reset(b)||a.switches-b.switches||Number(b.account===preferred)-Number(a.account===preferred)||a.account.localeCompare(b.account);
+ const optimal=result.results.filter(r=>optimum-r.estimatedWeightedWorkMinutes<=1e-5).sort(tie);
+ const others=result.results.filter(r=>optimum-r.estimatedWeightedWorkMinutes>1e-5).sort((a,b)=>b.estimatedWeightedWorkMinutes-a.estimatedWeightedWorkMinutes||tie(a,b));
+ const ranked=[...optimal,...others];
  const best=ranked[0],selected=accounts.find(a=>a.name===best.account);
  const learned=accounts.filter(a=>['ready','blocked'].includes(a.state)).every(a=>a.windows.every(w=>history[key(a,w)]?.samples>=3));
- return {account:selected,reason:`${selected.name===preferred?'Keeping':'Choosing'} Account ${selected.name.toUpperCase()}. Proven best modeled schedule for your work blocks, quota resets and switching time. ${learned?'Uses measured usage costs.':'Usage costs are starter estimates.'}`,confidence:learned?'learning-based':'starter-estimate',certificate:best.certificate,schedule:best.schedule,scores:ranked.map(({schedule,certificate,...s})=>s)};
+ return {account:selected,reason:`${selected.name===preferred?'Keeping':'Choosing'} Account ${selected.name.toUpperCase()}. Best modeled work capacity; equal-capacity routes prefer earlier quota resets, then fewer switches. ${learned?'Uses measured usage costs.':'Usage costs are starter estimates.'}`,confidence:learned?'learning-based':'starter-estimate',certificate:{...best.certificate,bestObjectiveValue:optimum,selectionGap:optimum-best.estimatedWeightedWorkMinutes},schedule:best.schedule,scores:ranked.map(({schedule,certificate,...s})=>s)};
 }
 
 export function recommend(accounts, preferred, excluded = new Set(), history = {}, now = Date.now(), options = {}) {

@@ -18,8 +18,15 @@ function buildModel({accounts, preferred, options={}}) {
    const y=`y${a}_${t}`,z=`z${a}_${t}`,w=`w${a}_${t}`;
    binary.push(y,z);bounds.push(`0 <= ${w} <= ${d}`);
    add([w,`-${d} ${y}`],'<=',0);
-   if(t===0)add([z,`-1 ${y}`],'>=',accounts[a].name===preferred?-1:preferred?0:-1);
-   else add([z,`-1 ${y}`,`y${a}_${t-1}`],'>=',0);
+   if(t===0){
+    // Exact transitions prevent invented switches from relaxing continuity.
+    if(!preferred||accounts[a].name===preferred)add([z],'=',0);
+    else add([z,`-1 ${y}`],'=',0);
+   }else{
+    add([z,`-1 ${y}`,`y${a}_${t-1}`],'>=',0);
+    add([z,`-1 ${y}`],'<=',0);
+    add([z,`y${a}_${t-1}`],'<=',1);
+   }
    objective.push(`${slot.weight} ${w}`);switches.push(z);
   }
  }
@@ -39,7 +46,13 @@ function buildModel({accounts, preferred, options={}}) {
   const indexes=slots.map((s,t)=>({s,t})).filter(({s})=>after?s.start>=p.reset:s.start<p.reset);
   if(indexes.length)add(indexes.map(({t})=>`w${a}_${t}`),'<=',Math.min(horizon,after?p.full:p.left));
  }
- if(commitment>0)add(['shortfall',...slots.flatMap((s,t)=>s.start<commitment?accounts.map((_,a)=>`w${a}_${t}`):[])],'>=',Math.min(commitment,blocks[0][1]-blocks[0][0]));
+ if(commitment>0){
+  const target=Math.min(commitment,blocks[0][1]-blocks[0][0]);
+  // Startup switching already consumes real work time above. Penalize only
+  // additional quota-related idle time, rather than charging startup twice.
+  const startup=Math.min(target,options.switchMinutes??2);
+  add(['shortfall',...slots.flatMap((s,t)=>s.start<commitment?accounts.map((_,a)=>`w${a}_${t}`):[]),...accounts.map((_,a)=>`${startup} z${a}_0`)],'>=',target);
+ }
  return {accounts,slots,rows,bounds,binary,objective,switches,commitment,options};
 }
 function lp(m,first,secondary=false,optimal=null){

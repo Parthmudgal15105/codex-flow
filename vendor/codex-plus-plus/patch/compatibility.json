@@ -1,0 +1,68 @@
+{
+  "testedBuilds": [
+    {
+      "platform": "win32",
+      "version": "26.928.21956",
+      "build": "26.928.2636.0",
+      "asarSha256": "fb7b2ee791bcbdb3c4a6375e9fec8fb404f3eaff995f0d293227354b298aff49",
+      "testedAt": "2026-10-01",
+      "notes": "Windows Store source; 27 patches / 12 files. Live CDP: authenticated startup and delayed checks, account Cards/Bars and routing, profile, usage/reset credits, native/Web/provider picker entries, Providers settings, per-chat account menu and Automatic selection. Two valid Pro/Pro Lite accounts completed real-composer follow-ups with server-confirmed account/quota attribution and default restoration. Failed pins and cross-account overlapping turns are rejected before submission; response ownership, queue wake-up and chat navigation survive account switches. Native chat plus real sandboxed terminal execution passed after enabling Windows LongPathsEnabled and longPathAware on the separate sandbox setup helper. ChatGPT Web live test skipped by user; external live test skipped after independently confirmed provider HTTP 401. V2 contract/lifecycle tests preserved. See docs/update-2026-10-01-validation.md."
+    },
+    {
+      "platform": "darwin",
+      "version": "26.810.52044",
+      "build": "6662",
+      "asarSha256": "6e7e8791b8bf69a586ff994721fff518af391d9efdc66cd2e620dd2a4aedc90f",
+      "testedAt": "2026-08-16",
+      "notes": "macOS official release"
+    },
+    {
+      "platform": "darwin",
+      "version": "26.818.41509",
+      "build": "6962",
+      "asarSha256": "8eb91bd9efbf9a4dd04b9b0afdbfcb4e0bab5da18c1919ad74ca327c00c7e791",
+      "testedAt": "2026-08-23",
+      "notes": "macOS official release"
+    },
+    {
+      "platform": "win32",
+      "version": "26.818.41509",
+      "build": "26.818.5229.0",
+      "asarSha256": "c5d839bc9b122b7ef2a2f0f45186b3e5895923de5b6cef5253c936fe670c0479",
+      "testedAt": "2026-08-23",
+      "notes": "Windows Store package 26.818.5229.0; internal Electron app version 26.818.41509"
+    },
+    {
+      "platform": "win32",
+      "version": "26.820.71523",
+      "build": "26.820.9563.0",
+      "asarSha256": "e353c580ef4939d36f4ae32a35c896d089205c1d06b9f711cf78ffa4a3578a8a",
+      "testedAt": "2026-08-27",
+      "notes": "Windows Store package 26.820.9563.0; internal Electron app version 26.820.71523; local CDP smoke passed"
+    },
+    {
+      "platform": "darwin",
+      "version": "26.825.51511",
+      "build": "7377",
+      "asarSha256": "f56ac8d5254a10fc4a04e7417fa787d135c3bbca49bad7d668d4ae65833d40c7",
+      "testedAt": "2026-08-30",
+      "notes": "macOS official release; live CDP smoke passed (account menu, cards/bars usage view, account switch)"
+    },
+    {
+      "platform": "win32",
+      "version": "26.901.41600",
+      "build": "26.901.5280.0",
+      "asarSha256": "6579c4326cccdb508d079ecc878ad4725451b2234370d2ed9d4db53939cf99c7",
+      "testedAt": "2026-09-05",
+      "notes": "Windows Store; 19 patches / 7 JS files verified. Astra message, account/reset credits, inline Providers, model selection and scrolling verified with CDP. Windows DPAPI key storage, three-connection selection, live Go messages/tools across three protocols and quota reads tested. See docs for tool limitations. Requires matching executable ASAR integrity metadata."
+    },
+    {
+      "platform": "darwin",
+      "version": "26.901.51231",
+      "build": "8109",
+      "asarSha256": "64fc2f27d2dddfa968acfacbe5e4e0328071bdc406351ff4a7d18f0b4692c83d",
+      "testedAt": "2026-09-09",
+      "notes": "macOS official release; 24 patches / 9 files verified. Embedded ASAR integrity fuse is on: the installer rewrites ElectronAsarIntegrity in Info.plist instead of removing it. Provider keys use the codexpp-keychain helper (login keychain master key, AES-256-GCM). Live CDP smoke: account menu, Bars usage view, GPT-6 Astra picker, Settings > Providers, keychain save/discover/remove round trip. See docs/astra-macos-26.901.md. Per-chat accounts (093-095): profile-menu pin, header picker next to Share, copy-to-ChatGPT for provider chats verified live. Native-pipe peer check bypassed (096). Native cua_repl (on-screen automation) is fixed by keeping codex and codex-code-mode-host Developer ID signed instead of ad-hoc: the external SkyComputerUseService authorizes a connection by a team-2DC432GLL2 ancestor, and codex is node_repl's parent; the Developer ID signature also carries allow-jit, so it subsumes the earlier JIT re-sign and code-mode host runs exec without crashing (see docs item 12)."
+    }
+  ]
+}

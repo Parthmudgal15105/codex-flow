@@ -1,0 +1,12 @@
+{
+  "log": "/Users/parthmudgal/Library/Logs/com.openai.codex/2026/10/13/codex-desktop-78722b60-62dd-4a4e-a2e9-9edf22e72337-9442-t0-i1-065223-0.log",
+  "checks": {
+    "Codex CLI initialized": 2,
+    "External auth is active": 0,
+    "application network permission was revoked": 0,
+    "account_login_completed": 0,
+    "method=account/login/start": 0
+  },
+  "testsPassed": 53,
+  "appSignatureVerified": true
+}

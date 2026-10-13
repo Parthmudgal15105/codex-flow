@@ -1,0 +1,284 @@
+import { __test_failoverCode } from "../patch/patches/091-rate-limit-failover.mjs";
+
+let totalTests = 0;
+let totalPassed = 0;
+let totalFailed = 0;
+
+function formatVal(v) {
+  if (v === Infinity) return "Infinity";
+  if (v === -Infinity) return "-Infinity";
+  if (v === undefined) return "undefined";
+  return JSON.stringify(v);
+}
+
+function assertEqual(label, actual, expected) {
+  totalTests++;
+  const match = actual === expected;
+  if (match) {
+    totalPassed++;
+    console.log(`  [PASS] ${label}`);
+    console.log(`         Expected : ${formatVal(expected)}`);
+    console.log(`         Actual   : ${formatVal(actual)}`);
+  } else {
+    totalFailed++;
+    console.log(`  [FAIL] ${label}`);
+    console.log(`         Expected : ${formatVal(expected)}`);
+    console.log(`         Actual   : ${formatVal(actual)}`);
+  }
+}
+
+function assertClose(label, actual, expected, tol = 1e-9) {
+  totalTests++;
+  const match = typeof actual === "number" && typeof expected === "number" && Math.abs(actual - expected) <= tol;
+  if (match) {
+    totalPassed++;
+    console.log(`  [PASS] ${label}`);
+    console.log(`         Expected : ${expected.toFixed(8)}`);
+    console.log(`         Actual   : ${actual.toFixed(8)} (diff: ${Math.abs(actual - expected).toExponential(2)})`);
+  } else {
+    totalFailed++;
+    console.log(`  [FAIL] ${label}`);
+    console.log(`         Expected : ${formatVal(expected)}`);
+    console.log(`         Actual   : ${formatVal(actual)}`);
+  }
+}
+
+function assertTruthy(label, condition, detail = "") {
+  totalTests++;
+  if (Boolean(condition)) {
+    totalPassed++;
+    console.log(`  [PASS] ${label} ${detail}`);
+  } else {
+    totalFailed++;
+    console.log(`  [FAIL] ${label} ${detail}`);
+  }
+}
+
+function assertDeepEqual(label, actual, expected) {
+  totalTests++;
+  const actualStr = JSON.stringify(actual);
+  const expectedStr = JSON.stringify(expected);
+  const match = actualStr === expectedStr;
+  if (match) {
+    totalPassed++;
+    console.log(`  [PASS] ${label}`);
+    console.log(`         Expected : ${expectedStr}`);
+    console.log(`         Actual   : ${actualStr}`);
+  } else {
+    totalFailed++;
+    console.log(`  [FAIL] ${label}`);
+    console.log(`         Expected : ${expectedStr}`);
+    console.log(`         Actual   : ${actualStr}`);
+  }
+}
+
+console.log("===============================================================");
+console.log("           CODEX++ POOL STATS UNIT TEST SUITE                  ");
+console.log("===============================================================\n");
+
+// ---------------------------------------------------------------------------
+// 0. EXTRACTION TEST
+// ---------------------------------------------------------------------------
+console.log("--- 0: _cxpPoolStats Extraction Test ---");
+
+const failoverSource = __test_failoverCode("jsx", "React");
+const START_MARKER = "/*_cxpPoolStats:start*/";
+const END_MARKER = "/*_cxpPoolStats:end*/";
+
+const startIdx = failoverSource.indexOf(START_MARKER);
+const endIdx = failoverSource.indexOf(END_MARKER);
+
+if (startIdx === -1 || endIdx === -1 || startIdx >= endIdx) {
+  console.error("FAIL: Could not extract _cxpPoolStats between marker comments");
+  process.exit(1);
+}
+
+const fnSource = failoverSource.slice(startIdx + START_MARKER.length, endIdx).trim();
+const { poolStats, poolMsg } = new Function(`${fnSource}; return { poolStats: _cxpPoolStats, poolMsg: _cxpPoolMessage };`)();
+
+assertTruthy("0: _cxpPoolStats extracted successfully as a callable function", typeof poolStats === "function");
+assertTruthy("0: _cxpPoolMessage extracted successfully as a callable function", typeof poolMsg === "function");
+
+const now = 1700000000000;
+
+// ---------------------------------------------------------------------------
+// (a) Tumu usedPercent >= 100
+// ---------------------------------------------------------------------------
+console.log("\n--- (a): All usedPercent >= 100 ---");
+
+const accsA = [
+  { id: "acc-1", label: "Pro Account", usedPercent: 100, resetAt: now + 3600 * 1000 },
+  { id: "acc-2", label: "Team Account", usedPercent: 120, resetAt: now + 1800 * 1000 },
+  { id: "acc-3", label: "Plus Account", usedPercent: 105, resetAt: now + 7200 * 1000 }
+];
+
+const resA = poolStats(accsA, now);
+assertEqual("(a) allKnownExhausted is true", resA.allKnownExhausted, true);
+assertEqual("(a) earliestResetAt is minimum resetAt", resA.earliestResetAt, now + 1800 * 1000);
+assertEqual("(a) known length equals accounts length", resA.known.length, 3);
+assertClose("(a) avgRemainingPct is 100 - avg(usedPercent)", resA.avgRemainingPct, 100 - ((100 + 120 + 105) / 3));
+assertEqual("(a) rows preserve order and count", resA.rows.length, 3);
+assertEqual("(a) row 0 label is preserved", resA.rows[0].label, "Pro Account");
+assertEqual("(a) row 0 usedPercent", resA.rows[0].usedPercent, 100);
+
+// ---------------------------------------------------------------------------
+// (b) One account usedPercent null
+// ---------------------------------------------------------------------------
+console.log("\n--- (b): One Account with usedPercent null ---");
+
+const accsB = [
+  { id: "acc-1", label: "Unknown Usage", usedPercent: null, resetAt: now + 600 * 1000 },
+  { id: "acc-2", label: "Known 40%", usedPercent: 40, resetAt: now + 2400 * 1000 },
+  { id: "acc-3", label: "Known 80%", usedPercent: 80, resetAt: now + 3600 * 1000 }
+];
+
+const resB = poolStats(accsB, now);
+assertEqual("(b) known length is 2 (null excluded)", resB.known.length, 2);
+assertEqual("(b) allKnownExhausted is false", resB.allKnownExhausted, false);
+assertClose("(b) avgRemainingPct is 100 - (40+80)/2", resB.avgRemainingPct, 40);
+assertEqual("(b) earliestResetAt includes all valid resetAt", resB.earliestResetAt, now + 600 * 1000);
+assertEqual("(b) row 0 usedPercent is null", resB.rows[0].usedPercent, null);
+
+// ---------------------------------------------------------------------------
+// (c) Hepsi null
+// ---------------------------------------------------------------------------
+console.log("\n--- (c): All null ---");
+
+const accsC = [
+  { id: "acc-1", email: "user1@example.com", usedPercent: null, resetAt: null },
+  { id: "acc-2", email: "user2@example.com", usedPercent: null, resetAt: null }
+];
+
+const resC = poolStats(accsC, now);
+assertEqual("(c) known length is 0", resC.known.length, 0);
+assertEqual("(c) avgRemainingPct is null", resC.avgRemainingPct, null);
+assertEqual("(c) allKnownExhausted is false", resC.allKnownExhausted, false);
+assertEqual("(c) earliestResetAt is null", resC.earliestResetAt, null);
+assertEqual("(c) rows count is 2", resC.rows.length, 2);
+assertEqual("(c) label falls back to email", resC.rows[0].label, "user1@example.com");
+
+// ---------------------------------------------------------------------------
+// (d) Bos dizi
+// ---------------------------------------------------------------------------
+console.log("\n--- (d): Empty Array ---");
+
+const accsD = [];
+const resD = poolStats(accsD, now);
+assertDeepEqual("(d) rows is empty array", resD.rows, []);
+assertDeepEqual("(d) known is empty array", resD.known, []);
+assertEqual("(d) avgRemainingPct is null", resD.avgRemainingPct, null);
+assertEqual("(d) allKnownExhausted is false", resD.allKnownExhausted, false);
+assertEqual("(d) earliestResetAt is null", resD.earliestResetAt, null);
+
+// ---------------------------------------------------------------------------
+// (e) Negatif: resetAt string / boolean
+// ---------------------------------------------------------------------------
+console.log("\n--- (e): Negative resetAt string/boolean ---");
+
+const accsE = [
+  { id: "acc-1", label: "Str Date", usedPercent: 50, resetAt: "2026-08-17T14:00:00Z" },
+  { id: "acc-2", label: "Bool Reset", usedPercent: 70, resetAt: true },
+  { id: "acc-3", label: "Numeric Reset", usedPercent: 90, resetAt: now + 5000 * 1000 }
+];
+
+const resE = poolStats(accsE, now);
+assertEqual("(e) resetAt string is coerced to null in rows[0]", resE.rows[0].resetAt, null);
+assertEqual("(e) resetAt boolean is coerced to null in rows[1]", resE.rows[1].resetAt, null);
+assertEqual("(e) resetAt number is retained in rows[2]", resE.rows[2].resetAt, now + 5000 * 1000);
+assertEqual("(e) earliestResetAt ignores string/boolean and takes numeric minimum", resE.earliestResetAt, now + 5000 * 1000);
+
+// ---------------------------------------------------------------------------
+// Ekstra: Label Resolution Hierarchy & Non-array input
+// ---------------------------------------------------------------------------
+console.log("\n--- Extra: Label Hierarchy and Fallback Tests ---");
+
+const accsExtra = [
+  { id: "id-1", label: "Custom Name", email: "custom@example.com" },
+  { id: "id-2", email: "onlyemail@example.com" },
+  { id: "id-3" }
+];
+
+const resExtra = poolStats(accsExtra, now);
+assertEqual("Extra 1: uses label when present", resExtra.rows[0].label, "Custom Name");
+assertEqual("Extra 2: falls back to email when label absent", resExtra.rows[1].label, "onlyemail@example.com");
+assertEqual("Extra 3: falls back to id when label and email absent", resExtra.rows[2].label, "id-3");
+
+const resNull = poolStats(null, now);
+assertDeepEqual("Extra 4: safe fallback for null accounts", resNull.rows, []);
+
+// ---------------------------------------------------------------------------
+// (f) Agirlikli havuz kapasite hesaplari
+// ---------------------------------------------------------------------------
+console.log("\n--- (f): Weighted Pool Capacity Calculations ---");
+
+const accsF1 = [
+  { id: "pro-1", planWeight: 200, usedPercent: 100, windowMins: 10080 },
+  { id: "free-1", planWeight: 1, usedPercent: 0, windowMins: 43200 }
+];
+const resF1 = poolStats(accsF1, now);
+assertClose("(f) pro w200 used100 + free w1 used0 avgRemainingPct", resF1.avgRemainingPct, (200 * 0 + 1 * 100) / 201);
+assertEqual("(f) pro w200 used100 + free w1 used0 Math.round is 0", Math.round(resF1.avgRemainingPct), 0);
+assertEqual("(f) pro row weight is 200", resF1.rows[0].weight, 200);
+assertEqual("(f) pro row windowMins is 10080", resF1.rows[0].windowMins, 10080);
+assertEqual("(f) free row weight is 1", resF1.rows[1].weight, 1);
+assertEqual("(f) free row windowMins is 43200", resF1.rows[1].windowMins, 43200);
+
+const accsF2 = [
+  { id: "plus-1", planWeight: 10, usedPercent: 40 },
+  { id: "free-2", planWeight: 1, usedPercent: 80 }
+];
+const resF2 = poolStats(accsF2, now);
+assertClose("(f) plus w10 used40 + free w1 used80 avgRemainingPct", resF2.avgRemainingPct, (10 * 60 + 1 * 20) / 11);
+assertEqual("(f) plus w10 used40 + free w1 used80 Math.round is 56", Math.round(resF2.avgRemainingPct), 56);
+
+const accsF3 = [
+  { id: "w3-acc", planWeight: 3, usedPercent: 50 },
+  { id: "w1-acc", planWeight: 1, usedPercent: 100 }
+];
+const resF3 = poolStats(accsF3, now);
+assertClose("(f) w3 used50 + w1 used100 avgRemainingPct is 37.5", resF3.avgRemainingPct, 37.5);
+
+const accsF4 = [
+  { id: "null-w", planWeight: null, usedPercent: 40 },
+  { id: "missing-w", usedPercent: 40 },
+  { id: "zero-w", planWeight: 0, usedPercent: 40 },
+  { id: "neg-w", planWeight: -5, usedPercent: 40 },
+  { id: "str-w", planWeight: "10", usedPercent: 40 }
+];
+const resF4 = poolStats(accsF4, now);
+assertEqual("(f) planWeight null falls back to 1", resF4.rows[0].weight, 1);
+assertEqual("(f) planWeight undefined falls back to 1", resF4.rows[1].weight, 1);
+assertEqual("(f) planWeight 0 falls back to 1", resF4.rows[2].weight, 1);
+assertEqual("(f) planWeight negative falls back to 1", resF4.rows[3].weight, 1);
+assertEqual("(f) planWeight string falls back to 1", resF4.rows[4].weight, 1);
+assertClose("(f) fallback accounts avgRemainingPct is 60", resF4.avgRemainingPct, 60);
+
+// ---------------------------------------------------------------------------
+// (m) _cxpPoolMessage title/subtitle selection (review P2 fix)
+// ---------------------------------------------------------------------------
+console.log("\n--- (m): Pool message selection ---");
+
+assertEqual("(m) auto-route off -> off title", poolMsg(false, poolStats(accsA, now)).title, "Automatic routing is off");
+assertEqual("(m) auto-route off -> off subtitle mentions account menu", poolMsg(false, poolStats(accsA, now)).subtitle.includes("account menu"), true);
+assertEqual("(m) all exhausted -> exhausted title", poolMsg(true, poolStats(accsA, now)).title, "All subscription quotas are exhausted");
+assertEqual("(m) all exhausted -> earliest reset subtitle", poolMsg(true, poolStats(accsA, now)).subtitle.startsWith("Earliest quota reset:"), true);
+assertEqual("(m) not all exhausted -> generic no-eligible title", poolMsg(true, poolStats(accsB, now)).title, "No eligible account available");
+assertEqual("(m) not all exhausted -> generic subtitle", poolMsg(true, poolStats(accsB, now)).subtitle.includes("ineligible"), true);
+const accsNoReset = [{ id: "x", label: "X", usedPercent: 100, resetAt: null }];
+assertEqual("(m) exhausted without reset time -> unknown subtitle", poolMsg(true, poolStats(accsNoReset, now)).subtitle, "Reset time unknown.");
+const accsNoUsage = [{ id: "y", label: "Y", usedPercent: null }];
+assertEqual("(m) unknown usage -> generic title, never exhausted claim", poolMsg(true, poolStats(accsNoUsage, now)).title, "No eligible account available");
+
+// ---------------------------------------------------------------------------
+// OZET RAPOR
+// ---------------------------------------------------------------------------
+console.log("\n===============================================================");
+console.log(`TEST RESULT: Total: ${totalTests}, Passed: ${totalPassed}, Failed: ${totalFailed}`);
+console.log(`TOTAL MISMATCHES: ${totalFailed}`);
+console.log("===============================================================");
+
+if (totalFailed > 0) {
+  process.exit(1);
+} else {
+  process.exit(0);
+}

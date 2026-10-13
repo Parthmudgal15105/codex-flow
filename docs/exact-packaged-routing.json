@@ -1,0 +1,90 @@
+{
+  "accounts": [
+    {
+      "label": "Account B",
+      "plan": "plus",
+      "usage": {
+        "fiveHour": {
+          "source": "primary",
+          "bucket": "codex:primary",
+          "usedPercent": 52,
+          "resetAt": 1791751626000,
+          "windowMins": 300
+        },
+        "weekly": {
+          "source": "secondary",
+          "bucket": "codex:secondary",
+          "usedPercent": 8,
+          "resetAt": 1792338426000,
+          "windowMins": 10080
+        },
+        "other": []
+      },
+      "error": null
+    },
+    {
+      "label": "Account A",
+      "plan": "plus",
+      "usage": {
+        "fiveHour": {
+          "source": "primary",
+          "bucket": "codex:primary",
+          "usedPercent": 18,
+          "resetAt": 1791759937000,
+          "windowMins": 300
+        },
+        "weekly": {
+          "source": "secondary",
+          "bucket": "codex:secondary",
+          "usedPercent": 32,
+          "resetAt": 1792309043000,
+          "windowMins": 10080
+        },
+        "other": []
+      },
+      "error": null
+    }
+  ],
+  "selected": "Account A",
+  "reason": {
+    "explanation": "Keeping Account FLOW-A. Proven best modeled schedule for your work blocks, quota resets and switching time. Usage costs are starter estimates.",
+    "confidence": "starter-estimate"
+  },
+  "certificate": {
+    "status": "Optimal",
+    "method": "HiGHS mixed-integer branch-and-cut",
+    "relativeGap": 0,
+    "absoluteTolerance": 0.00001,
+    "model": "finite-horizon-v2",
+    "objectiveValue": 144,
+    "objective": "weighted productive minutes minus initial continuity shortfall",
+    "blocks": [
+      [
+        0,
+        180,
+        1
+      ],
+      [
+        300,
+        480,
+        1
+      ]
+    ],
+    "switchMinutes": 2,
+    "continuityPenalty": 1.5,
+    "stepMinutes": 1,
+    "commitmentMinutes": 15
+  },
+  "scores": [
+    {
+      "account": "flow-a",
+      "estimatedWeightedWorkMinutes": 144,
+      "switches": 1
+    },
+    {
+      "account": "native",
+      "estimatedWeightedWorkMinutes": 141,
+      "switches": 2
+    }
+  ]
+}

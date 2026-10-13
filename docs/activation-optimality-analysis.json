@@ -1,0 +1,62 @@
+{
+  "synthetic": true,
+  "assumptions": {
+    "horizonMinutes": 480,
+    "activationCostMinutes": 0.1,
+    "activationElapsedTime": 0,
+    "switchMinutes": 0,
+    "weeklyResetsWithinHorizon": false
+  },
+  "weeklyCapacityMinutes": {
+    "a": 60,
+    "b": 20
+  },
+  "withoutActivation": {
+    "productiveMinutes": 80,
+    "certificate": {
+      "status": "Optimal",
+      "method": "HiGHS mixed-integer branch-and-cut",
+      "relativeGap": 0,
+      "absoluteTolerance": 0.00001,
+      "model": "finite-horizon-v2",
+      "objectiveValue": 80,
+      "objective": "weighted productive minutes minus initial continuity shortfall",
+      "blocks": [
+        [
+          0,
+          480,
+          1
+        ]
+      ],
+      "switchMinutes": 0,
+      "continuityPenalty": 0,
+      "stepMinutes": 1,
+      "commitmentMinutes": 0
+    }
+  },
+  "withActivation": {
+    "productiveMinutes": 79.9,
+    "certificate": {
+      "status": "Optimal",
+      "method": "HiGHS mixed-integer branch-and-cut",
+      "relativeGap": 0,
+      "absoluteTolerance": 0.00001,
+      "model": "finite-horizon-v2",
+      "objectiveValue": 79.9,
+      "objective": "weighted productive minutes minus initial continuity shortfall",
+      "blocks": [
+        [
+          0,
+          480,
+          1
+        ]
+      ],
+      "switchMinutes": 0,
+      "continuityPenalty": 0,
+      "stepMinutes": 1,
+      "commitmentMinutes": 0
+    }
+  },
+  "lostProductiveMinutes": 0.09999999999999432,
+  "conclusion": "Always activating an unused account is not globally optimal. In a weekly-limited scenario it spends scarce quota without increasing productive capacity."
+}

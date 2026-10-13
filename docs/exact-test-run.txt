@@ -1,0 +1,45 @@
+
+> codex-flow@0.1.0 test
+> node --test test/*.test.js
+
+✔ desktop learning attributes one turn, excludes refresh delay, persists and rejects overlap (1.482375ms)
+✔ malformed durations and reset crossings cannot poison learned rates (0.2975ms)
+✔ overlapping work invalidates both measurements instead of learning the wrong cost (0.376458ms)
+✔ switch overhead is measured only after successful acknowledgement and bounded (1.327583ms)
+✔ adapter honors every exclusion representation and identity exclusions (1.3165ms)
+✔ adapter rejects stale, future, failed, missing and exhausted quota snapshots (0.660417ms)
+✔ adapter preserves unknown reset and uses workspace identity for learning (0.067834ms)
+✔ all quota buckets retain separate resources and server-blocked status (0.083958ms)
+✔ exact solver matches independent exhaustive oracle across 80 seeded schedules (2026.173375ms)
+✔ exact reset boundaries are preserved without five-minute rounding (83.443375ms)
+✔ past reset does not fabricate allowance and all exhausted accounts fail closed (73.09975ms)
+✔ invalid and duplicate input, exclusions, empty data and invalid options fail closed (48.659792ms)
+✔ blocked account can contribute after its reported reset, never be selected now (127.780459ms)
+✔ async routing returns the same certified decision without blocking the event loop (322.4275ms)
+✔ session replanning preserves elapsed work and resets only after the work block (1.827458ms)
+✔ switching time spans a reset-created short slot (11.117667ms)
+✔ weekly exhaustion blocks even when five-hour allowance remains (0.761041ms)
+✔ missing usage is never considered ready; expired snapshot is not assumed reset (0.078458ms)
+✔ keep current usable account, exclude exhausted workers (1793.647042ms)
+✔ do not switch on generic network or 429 errors or agent prose (0.231ms)
+✔ end-to-end: partial work survives quota handoff, B resumes next task (6744.013166ms)
+✔ preserve existing project notes and prevent concurrent workers (5.106958ms)
+✔ use allowance expiring soon when it improves the modeled work schedule (3327.336416ms)
+✔ avoid starting a likely interrupted task on nearly exhausted preferred account (7889.340209ms)
+✔ weekly bottleneck outweighs plentiful short-window usage (995.532666ms)
+✔ different plans use separate learned work capacity, not raw percentages (1257.896667ms)
+✔ learn usage only across matching account, plan and reset windows (0.446209ms)
+✔ blocked accounts never selected; invalid duration and usage fail closed (961.491958ms)
+✔ deterministic decisions and no input mutation (5867.075166ms)
+✔ UI Ask handoff preserves discussion and is read-only without project notes (2396.681208ms)
+✔ separate chats do not leak context and modes resume separate account sessions (6958.242291ms)
+✔ unavailable UI request stays saved and retry does not duplicate user turn (1786.238209ms)
+✔ shared prompt bounds context and distinguishes Ask from Build (0.256708ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20345.6885

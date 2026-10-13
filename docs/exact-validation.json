@@ -1,0 +1,32 @@
+{
+  "scheduler": "HiGHS 1.15.3 MILP",
+  "guarantee": "Global optimum within numerical tolerance for the explicitly documented finite scheduling model, not unknown future real workloads",
+  "regressionTests": {
+    "passed": 33,
+    "failed": 0
+  },
+  "independentOracle": {
+    "seededInstances": 80,
+    "firstAccountComparisons": 160,
+    "checks": "objective and minimum switches"
+  },
+  "installedAdapterAudit": {
+    "passed": 13,
+    "failed": 0
+  },
+  "focusedFinalTests": {
+    "passed": 16,
+    "failed": 0
+  },
+  "upstreamRoutingTests": {
+    "passed": 57,
+    "failed": 0
+  },
+  "installedFilesMatchSource": 11,
+  "installedRendererHooksVerified": true,
+  "originalAppSignature": "verified",
+  "updatedAppSignature": "verified",
+  "packagedBundledRuntimeWithLiveQuota": "Optimal",
+  "activation": "next application restart; running process not terminated",
+  "uiInteraction": "not newly verified; computer-control tool refused Codex interaction"
+}
